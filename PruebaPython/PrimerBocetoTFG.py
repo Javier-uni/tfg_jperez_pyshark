@@ -3,7 +3,7 @@
 ##Fecha: 14/02/2025
 ##Versión: 0.1
 
-##Actualemente estoy trabajando en: Igualdades.py
+##Actualemente estoy trabajando en: Igualdades.py (Mucho mas actualizado)
 ##Notas: filecmp puede ser útil para comparar archivos
 ##Ahorro de recursos: comprobacion una vez, pasar a carpteta CORRECTA 
 ##Nota: despues de abrir el archivo, cerrarlo
