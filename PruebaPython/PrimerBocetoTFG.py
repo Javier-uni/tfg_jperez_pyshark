@@ -1,6 +1,6 @@
 ##Primer Boceto TFG
 ##Autor: Javier Pérez
-##Fecha: 13/02/2025
+##Fecha: 14/02/2025
 ##Versión: 0.1
 
 ##Actualemente estoy trabajando en: Igualdades.py
