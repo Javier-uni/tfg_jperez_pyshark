@@ -1,0 +1,20 @@
+[
+    {
+        "nombre": "captura_A.pcap",
+        "atrmac": true,
+        "copia": false,
+        "Comentario": "Esta captura es una copia exacta de:{'capturas03/captura_X.pcap'}"
+    },
+    {
+        "nombre": "captura_B.pcap",
+        "atrmac": false,
+        "copia": false,
+        "Comentario": "Esta captura es una copia de: {'capturas03/captura_Y.pcap'} comparten mac origen y timestamp de las capturas"
+    },
+    {
+        "nombre": "captura_C.pcap",
+        "atrmac": true,
+        "copia": false,
+        "Comentario": "Esta captura es una copia exacta de:{'capturas03/captura_Z.pcap'}"
+    }
+]
