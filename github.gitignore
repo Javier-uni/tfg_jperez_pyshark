@@ -1,0 +1,8 @@
+# Ignore all files in the "capturas" directory
+capturas*/
+
+# Ignore all Python files except specific ones
+*.py
+!PrimerBocetoTFG.py
+!Prueba01.py
+!Prueba02.py
