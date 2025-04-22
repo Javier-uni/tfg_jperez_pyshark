@@ -1,8 +1,17 @@
 # Ignore all files in the "capturas" directory
-capturas*/
+capturas01/
+capturas02/
+capturas03/
+*.pcap
 
 # Ignore all Python files except specific ones
 *.py
 !PrimerBocetoTFG.py
 !Prueba01.py
 !Prueba02.py
+
+
+# Ignore the following directoris
+.venv/
+.idea/
+__pycache__/
