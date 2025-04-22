@@ -2,7 +2,12 @@
 capturas01/
 capturas02/
 capturas03/
+capturas*/
 *.pcap
+capturas01
+capturas02
+capturas03
+
 
 # Ignore all Python files except specific ones
 *.py
