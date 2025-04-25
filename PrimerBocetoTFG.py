@@ -1,18 +1,18 @@
 ##Primer Boceto TFG
 ##Autor: Javier Pérez
-##Fecha: 13/02/2025
-##Versión: 0.1
+##Fecha:
 ##Nota: despues de abrir el archivo, cerrarlo
 ##NOtas:
 ## Llamar con parametros
-## Informe: pdf 
 ##Comprobar atrMac
 import os
+import sys
 import pyshark
 import logging
 import json
 import filecmp
 from fpdf import FPDF
+import BibliotecaTFG as lib
 
 version = 0.5
 def main():
@@ -88,6 +88,9 @@ class Comprobacion:
         
     passed : bool, optional
         A boolean attribute indicating if the verification passed (default is True).
+    
+    Nota : int, optional
+        A numeric attribute (default is 0).
         
     Methods
     -------
@@ -96,7 +99,7 @@ class Comprobacion:
     """
     
     def __init__(self, name,atrmac=True, atrtime=True,year='2025', 
-                  copia=True, atrexact=True, igual='',passed=True):
+                  copia=True, atrexact=True, igual='',passed=True, nota=0):
         self.name = name 
         self.atrmac = atrmac
         self.atrtime = atrtime
@@ -105,6 +108,7 @@ class Comprobacion:
         self.atrexact = atrexact
         self.igual = igual
         self.passed = passed #Incluye comprobacion unica y a pares
+        self.nota = nota 
         
         
 def dir(directorio):
@@ -133,7 +137,7 @@ def recorrerDirectorio(directorio):
             # resultadomacs(cap_path)
             # vid(cap_path)
             # timestamp(cap_path)
-            timestamp(cap_path)
+            lib.timestamp(cap_path)
             
 def recorrerCapturas(directorio):
     print('El directorio tiene '+str(len(os.listdir(directorio)))+' capturas')
@@ -142,7 +146,7 @@ def recorrerCapturas(directorio):
         archivos.append(str(directorio+'/'+filename))
     for archivo in archivos:
         print('Analizando captura: ' + archivo)
-        resultadomacsrc(archivo)
+        lib.resultadomacsrc(archivo)
       
         
 def recorrerDirectorioFinal(directorio):
@@ -185,7 +189,11 @@ def comprobacionindividual(path_cap1,comprobacion):
     None
     """
     comprobacionanual(path_cap1,comprobacion)
-    #falta check de paquetes
+    lib.MinPacks(path_cap1,comprobacion)
+    lib.MinMacsSrc(path_cap1,comprobacion)
+    lib.MinPacksVlan(path_cap1,comprobacion)
+    
+    
 
 
 def comprobacionIdentica(path_cap1, path_cap2, comprobacion1):
@@ -221,8 +229,8 @@ def analizar_capturas(path_cap1, path_cap2,comprobacion):
     logging.info(f"Analizando {path_cap1} y {path_cap2}")
     comprobacionIdentica(path_cap1, path_cap2, comprobacion)
     if  comprobacion.atrexact:
-     mac1 = resultadomacsrc(path_cap1)
-     mac2 = resultadomacsrc(path_cap2)
+     mac1 = lib.resultadomacsrc(path_cap1)
+     mac2 = lib.resultadomacsrc(path_cap2)
      if mac1 == mac2:
         comprobacion.atrmac = False
         comprobaciontemporal(path_cap1, path_cap2,comprobacion)
@@ -326,125 +334,6 @@ def comprobaciontemporal(path_cap1, path_cap2,comprobacion):
     
 
 
-##Analisis con wireshark
-def resultadomacs(cap_path):
-    """
-    Extracts and returns a list of unique source MAC addresses from a Wireshark capture file.
-    Args:
-        cap_path (str): The file path to the Wireshark capture file.
-    Returns:
-        list: A list of unique source MAC addresses found in the capture file.
-    """
-    
-    macs = []
-    abspath = os.path.abspath(cap_path)
-    cap = pyshark.FileCapture(abspath)
-    for pkt in cap:
-        if hasattr(pkt, 'eth'):
-            if pkt.eth.src not in macs:
-             macs.append(pkt.eth.src)
-    logging.debug(macs)
-    cap.close()
-    return macs
-
-
-def resultadomacsrc(cap_path):
-    """
-    Extracts and returns the MAC address of the host pc from a Wireshark capture file.
-    Args:
-        cap_path (str): The file path to the Wireshark capture file.
-    Returns:
-        list: It should return the MAC address of the host pc.
-    """
-    
-    macs = []
-    abspath = os.path.abspath(cap_path)
-    cap = pyshark.FileCapture(abspath)
-    for pkt in cap:
-        if hasattr(pkt, 'icmp'):
-            if pkt.icmp.type == '8':#Cuidado, 8 es un string
-                if pkt.eth.src not in macs:
-                    # print('MAC origen: '+pkt.eth.src)
-                    macs.append(pkt.eth.src)
-    logging.debug(macs)
-    cap.close()
-    return macs
-
-
-def vid(cap_path):
-    vids = []
-    abspath = os.path.abspath(cap_path)
-    cap = pyshark.FileCapture(abspath)
-    for pkt in cap:
-        if hasattr(pkt, 'vlan'):
-            if pkt.vlan.id not in vids:
-             vids.append(pkt.vlan.id)
-    logging.debug(vids)
-    cap.close()
-    return vids
-
-
-def timestamps(cap_path):
-    """
-    Extracts and returns all the timestamps from the specified capture file.
-    Args:
-        cap_path (str): The file path to the capture file.
-    Returns:
-        list: A list containing two lists:
-            - The first list contains timestamps in the format [day, month, year, hour, minute, second].
-            - The second list contains timestamps in nanoseconds.
-    """
-    
-    fecha = []
-    nanosegs = []
-    times = [fecha, nanosegs]
-    abspath = os.path.abspath(cap_path)
-    cap = pyshark.FileCapture(abspath)
-    for pkt in cap:
-        #no haria ni falta el hasttr
-        if hasattr(pkt, 'frame_info'):
-            if pkt.sniff_time.strftime('%d/%m/%Y %H:%M:%S') not in fecha:
-             fecha.append(pkt.sniff_time.strftime('%d/%m/%Y %H:%M:%S')) # comprobacion 2025
-             
-            if pkt.sniff_timestamp not in nanosegs:
-             nanosegs.append(pkt.sniff_timestamp)
-            
-    logging.debug(times)
-    cap.close()
-    return times
-
-
-def timestamp(cap_path):
-    """
-    Extracts and returns the ICMP echo request timestamps from the specified capture file.
-    Args:
-        cap_path (str): The file path to the capture file.
-    Returns:
-        list: A list containing two lists:
-            - The first list contains timestamps in the format [day, month, year, hour, minute, second].
-            - The second list contains timestamps in nanoseconds.
-    """
-        
-    fecha = []
-    nanosegs = []
-    time = [fecha, nanosegs]
-    abspath = os.path.abspath(cap_path)
-    cap = pyshark.FileCapture(abspath)
-    for pkt in cap:
-        #no haria ni falta el hasttr
-        if hasattr(pkt, 'icmp'):
-            if pkt.icmp.type == '8':
-             if pkt.sniff_time.strftime('%d/%m/%Y %H:%M:%S') not in fecha:
-              fecha.append(pkt.sniff_time.strftime('%d/%m/%Y %H:%M:%S')) # comprobacion 2025
-             
-             if pkt.sniff_timestamp not in nanosegs:
-              nanosegs.append(pkt.sniff_timestamp)
-            
-    logging.debug(time)
-    cap.close()
-    return time
-
-
 
 ##Json a pdf
 def json_to_pdf(json_path='resultados.json', output_pdf_path='resultados.pdf'):
@@ -514,6 +403,16 @@ En el proceso de verificación, cada captura de red se representa con un objeto 
 if __name__ == "__main__":
     os.system('cls')
     print('TFG JP ' +'\n' + 'version = ' + str(version) + '')
-    print('Comprobando directorio de capturas')
-    main()
+    if len(sys.argv) > 1:
+     order = str(sys.argv[1]).lower()
+     if order in ['practica2', 'p2']:
+        main() 
+     elif order in ['practica1', 'p1']:
+         print('En proceso')
+     elif order in ['practica3', 'p3']:
+         print('En proceso')
+    else:
+        print('No se ha encontrado el argumento correcto')
+        print('De momento ejecuto P2')
+        main
 
