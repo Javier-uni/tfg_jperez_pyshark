@@ -128,6 +128,27 @@ def timestamp(cap_path):
     return time
 
 
+def comprobacionanual(path_cap1,comprobacion):
+    time = timestamps(path_cap1)
+    if not str(comprobacion.year) in str(time[0]):
+        comprobacion.atrtime = False
+        logging.warning(f'La captura {path_cap1} NO tiene el año {comprobacion.year}')
+        
+        
+   
+   
+ ##comprobaciondepaquetes y minpacks...  
+        
+def comprobaciondepaquetes(path_cap1,comprobacion):
+    cap = pyshark.FileCapture(path_cap1)
+    if len(cap) < 2:
+        comprobacion.passed = False
+        logging.warning(f'La captura {path_cap1} NO tiene el numero de paquetes necesario')
+    else:
+        logging.info(f'La captura {path_cap1} tiene el numero de paquetes necesario')
+    cap.close() 
+
+
 def MinPacks(cap_path,comprobacion):
     """
     Checks if the cap has a minimun of packetss.
@@ -158,6 +179,7 @@ def MinPacks(cap_path,comprobacion):
 
 def MinPacksVlan(cap_path,comprobacion):
     print('EnProceso')
+    #tener hecha la funcion de vlan para que funcione
     
 def MinMacsSrc(cap_patch,comprobacion):
     print('EnProceso')

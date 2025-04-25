@@ -14,7 +14,7 @@ import filecmp
 from fpdf import FPDF
 import BibliotecaTFG as lib
 
-version = 0.5
+version = 0.6
 def main():
     print("EJecutando el programa")
     logconfig("info")
@@ -188,7 +188,7 @@ def comprobacionindividual(path_cap1,comprobacion):
     Returns:
     None
     """
-    comprobacionanual(path_cap1,comprobacion)
+    lib.comprobacionanual(path_cap1,comprobacion)
     lib.MinPacks(path_cap1,comprobacion)
     lib.MinMacsSrc(path_cap1,comprobacion)
     lib.MinPacksVlan(path_cap1,comprobacion)
@@ -296,21 +296,7 @@ def claseAdiccionarioCopiaIndividual(comprobacion):
  
  
 ##Comprobaciones Específicas       
-def comprobacionanual(path_cap1,comprobacion):
-    time = lib.timestamps(path_cap1)
-    if not str(comprobacion.year) in str(time[0]):
-        comprobacion.atrtime = False
-        logging.warning(f'La captura {path_cap1} NO tiene el año {comprobacion.year}')
-        
-        
-def comprobaciondepaquetes(path_cap1,comprobacion):
-    cap = pyshark.FileCapture(path_cap1)
-    if len(cap) < 2:
-        comprobacion.passed = False
-        logging.warning(f'La captura {path_cap1} NO tiene el numero de paquetes necesario')
-    else:
-        logging.info(f'La captura {path_cap1} tiene el numero de paquetes necesario')
-    cap.close()
+
  
 def comprobaciontemporal(path_cap1, path_cap2,comprobacion):
     time1 = lib.timestamp(path_cap1)
@@ -413,6 +399,8 @@ if __name__ == "__main__":
          print('En proceso')
     else:
         print('No se ha encontrado el argumento correcto')
+        print('Puedes usar los siguientes argumentos:') 
+        print('practica1, practica2, practica3')
         print('De momento ejecuto P2')
         main
 
