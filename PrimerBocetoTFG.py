@@ -297,7 +297,7 @@ def claseAdiccionarioCopiaIndividual(comprobacion):
  
 ##Comprobaciones Específicas       
 def comprobacionanual(path_cap1,comprobacion):
-    time = timestamps(path_cap1)
+    time = lib.timestamps(path_cap1)
     if not str(comprobacion.year) in str(time[0]):
         comprobacion.atrtime = False
         logging.warning(f'La captura {path_cap1} NO tiene el año {comprobacion.year}')
@@ -313,8 +313,8 @@ def comprobaciondepaquetes(path_cap1,comprobacion):
     cap.close()
  
 def comprobaciontemporal(path_cap1, path_cap2,comprobacion):
-    time1 = timestamp(path_cap1)
-    time2 = timestamp(path_cap2)       
+    time1 = lib.timestamp(path_cap1)
+    time2 = lib.timestamp(path_cap2)       
     if time1 == time2:
         logging.warning('Las capturas tienen exactamente los mismos tiempos de captura')
         comprobacion.atrtime = False
