@@ -9,6 +9,14 @@ capturas02
 capturas03
 
 
+
+
+# Ignore all document files
+resultados.json
+resultados.pdf
+resultados/
+
+
 # Ignore all Python files except specific ones
 *.py
 !PrimerBocetoTFG.py
@@ -23,3 +31,4 @@ capturas03
 .idea/
 __pycache__/
 .vscode/
+pruebas/

@@ -13,12 +13,11 @@ import json
 import filecmp
 from fpdf import FPDF
 import BibliotecaTFG as lib
+import tkinter
 
 version = 0.6
-def main():
+def Inicio(directorio):
     print("EJecutando el programa")
-    logconfig("info")
-    directorio='capturas03'
     dir(directorio)
     recorrerDirectorioFinal(directorio)
     
@@ -385,6 +384,113 @@ En el proceso de verificación, cada captura de red se representa con un objeto 
         
 
 
+def startGUI():
+    """
+    Starts the GUI for the program.
+    """
+    print('Iniciando GUI')
+    logconfig("info")
+    # Configuración de la ventana principal
+    ventana = tkinter.Tk()
+    ventana.title('TFG JP')
+    ventana.geometry('1000x400') ## A CAMBIARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+    ventana.configure(bg='#F0F0F0')  # Color de fondo suave
+
+    # Estilos 
+    estilo_titulo = ('Times New Roman', 20, 'bold')
+    estilo_normal = ('Arial', 12)
+    color_boton = '#4A7A8C'  # Azul moderno
+
+    # Marco contenedor para mejor organización
+    marco_principal = tkinter.Frame(ventana, bg='#F0F0F0')
+    marco_principal.pack(pady=20, expand=True)
+
+    # Título con estilo mejorado
+    label_titulo = tkinter.Label(
+        marco_principal,
+        text='Bienvenido a la GUI de TFG JP',
+        font=estilo_titulo,
+        bg='#F0F0F0', #No seria necesario ya que hereda el color del marco
+        fg='#2C3E50'
+    )
+    label_titulo.pack(pady=15)
+
+    # Sección de directorio
+    marco_directorio = tkinter.Frame(marco_principal, bg='#F0F0F0')
+    marco_directorio.pack(pady=10)
+
+    # Etiqueta descriptiva
+    label_directorio = tkinter.Label(
+        marco_directorio,
+        text='Directorio a analizar:',
+        font=estilo_normal,
+        bg='#F0F0F0',
+        fg='#34495E'
+    )
+    label_directorio.pack(anchor='w', pady=5)
+
+    # Cuadro de entrada ampliado
+    cuadro_entrada = tkinter.Entry(
+        marco_directorio,
+        width=60,
+        font=estilo_normal,
+        bd=2,
+        relief=tkinter.GROOVE
+    )
+    cuadro_entrada.pack(padx=10, pady=5)
+    cuadro_entrada.insert(0, 'capturas03')
+
+    # Sección de opciones
+    marco_opciones = tkinter.Frame(marco_principal, bg='#F0F0F0')
+    marco_opciones.pack(pady=15)
+
+    # Cuadro de selección ampliado
+    opciones = ['Prueba 1', 'Prueba 2', 'Prueba 3']
+    seleccion = tkinter.StringVar()
+    seleccion.set(opciones[1])
+
+    label_opciones = tkinter.Label(
+        marco_opciones,
+        text='Seleccione una opción:',
+        font=estilo_normal,
+        bg='#F0F0F0',
+        fg='#34495E'
+    )
+    label_opciones.pack(anchor='w', pady=5)
+
+    cuadro_seleccion = tkinter.OptionMenu(
+        marco_opciones,
+        seleccion,
+        *opciones
+    )
+    cuadro_seleccion.config(
+        width=20,
+        font=estilo_normal,
+        bg='#FFFFFF',
+        relief=tkinter.GROOVE
+    )
+    cuadro_seleccion.pack(padx=10, pady=5, side=tkinter.LEFT)
+
+    # Botón de inicio mejorado
+    boton_inicio = tkinter.Button(
+        marco_principal,
+        text='Iniciar análisis',
+        command=lambda: Inicio(str(cuadro_entrada.get())),
+        font=estilo_normal,
+        bg=color_boton,
+        fg='white',
+        padx=20,
+        pady=10,
+        bd=0,
+        activebackground='#3B5D6C'
+    )
+    boton_inicio.pack(pady=20)
+
+    ventana.mainloop()
+
+
+def main():
+    startGUI()
 
 if __name__ == "__main__":
     os.system('cls')
@@ -398,9 +504,10 @@ if __name__ == "__main__":
      elif order in ['practica3', 'p3']:
          print('En proceso')
     else:
-        print('No se ha encontrado el argumento correcto')
-        print('Puedes usar los siguientes argumentos:') 
-        print('practica1, practica2, practica3')
-        print('De momento ejecuto P2')
-        main
+        # print('No se ha encontrado el argumento correcto')
+        # print('Puedes usar los siguientes argumentos:') 
+        # print('practica1, practica2, practica3')
+        # print('De momento ejecuto P2')
+        # main
+        startGUI()
 
