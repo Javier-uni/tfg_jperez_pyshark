@@ -169,7 +169,7 @@ def MinPacks(cap_path,comprobacion):
         comprobacion.nota = suma
         return True
     elif minpaquetes < 5:
-        logging.warning('La captura cuenta con unicamente' + minpaquetes )
+        logging.warning('La captura cuenta con unicamente' + str(minpaquetes ))
         cap.close()
         return False
     else:

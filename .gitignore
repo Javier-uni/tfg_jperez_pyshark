@@ -22,3 +22,4 @@ capturas03
 .venv/
 .idea/
 __pycache__/
+.vscode/
