@@ -14,6 +14,9 @@ import filecmp
 from fpdf import FPDF
 import BibliotecaTFG as lib
 import tkinter
+from tkinter import scrolledtext
+
+
 
 version = 0.6
 def Inicio(directorio):
@@ -30,21 +33,18 @@ def logconfig(level):
  Configures the logging module to display log messages with a level of INFO or higher.
  The log messages will be formatted to show the log level and the message content.
  """
- if level == 'debug':
-     log_level = logging.DEBUG  # Todos los mensajes de log
- elif level == 'info':
-     log_level = logging.INFO  # Solo mensajes de INFO en adelante
- elif level == 'warning':
-     log_level = logging.WARNING  # Solo mensajes de WARNING en adelante
- elif level == 'error':
-     log_level = logging.ERROR  # Solo mensajes de ERROR en adelante
- elif level == 'critical':
-     log_level = logging.CRITICAL
- else:
-     print('Error en los logs, NO FUNCIONAN')
-
+ level_dict = {
+        'debug': logging.DEBUG,     # Todos los mensajes de log
+        'info': logging.INFO,       # Solo mensajes de INFO en adelante
+        'warning': logging.WARNING, # Solo mensajes de WARNING en adelante
+        'error': logging.ERROR,     # Solo mensajes de ERROR en adelante
+        'critical': logging.CRITICAL# Solo mensajes de CRITICAL 
+    }
+    
+    
+    
  logging.basicConfig(
-     level=log_level,
+     level = level_dict.get(level, logging.INFO),  # Default a INFO si hay error
      format='%(levelname)s: %(message)s'
  )
 
@@ -187,10 +187,12 @@ def comprobacionindividual(path_cap1,comprobacion):
     Returns:
     None
     """
-    lib.comprobacionanual(path_cap1,comprobacion)
-    lib.MinPacks(path_cap1,comprobacion)
-    lib.MinMacsSrc(path_cap1,comprobacion)
-    lib.MinPacksVlan(path_cap1,comprobacion)
+    lib.comprobacionanual(path_cap1,comprobacion) #Donete
+    lib.MinPacks(path_cap1,comprobacion)    #PASAR POR PARAMENTRO NUMERO DE PACKETS, contar en funcion de IMCP
+    #lib.MinMacsSrc(path_cap1,comprobacion)  #Es del Router no del PC (maaaal) (probablemente quitar) 
+    lib.MinPacksVlan(path_cap1,comprobacion) #Change name, varias comprobaciones 1.(802.1.q) Que exista paquete con vlan 
+    #2. Correspondencia de Vlan con el fichero json (con 1 correcto)
+    #3. COmprobacion complementaria -> Paquete ICMP E Request (mirar IP origen) 10.0.X.Y1 XXXXXXXXXXXXX 
     
     
 
@@ -485,6 +487,22 @@ def startGUI():
         activebackground='#3B5D6C'
     )
     boton_inicio.pack(pady=20)
+    
+    
+        #Resultados
+    marco_resultados = tkinter.Frame(ventana, bg='#F0F0F0')
+    marco_resultados.pack(fill=tkinter.BOTH, expand=True, padx=20, pady=10)
+    
+    
+    consola_logs = scrolledtext.ScrolledText(
+    marco_resultados,
+    wrap=tkinter.WORD,
+    font=('Consolas', 10),
+    bg='#FFFFFF',
+    fg='#2C3E50',
+    height=10
+    )
+    consola_logs.pack(fill=tkinter.BOTH, expand=True)
 
     ventana.mainloop()
 
