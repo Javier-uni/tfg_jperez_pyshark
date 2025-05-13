@@ -18,11 +18,22 @@ from tkinter import scrolledtext
 
 
 
-version = 0.6
-def Inicio(directorio):
+version = 0.7
+def Inicio(directorio,prueba):
     print("EJecutando el programa")
     dir(directorio)
-    recorrerDirectorioFinal(directorio)
+    
+    #Incluir aqui las comprobaciones en funcion de la practica
+    if prueba == 'practica 2' or prueba == 'Practica 2':
+        #Recorrer el directorio y analizar las capturas
+        #recorrerDirectorio(directorio)
+        #recorrerCapturas(directorio)
+        recorrerDirectorioFinal(directorio)
+        
+    else:
+        logging.critical('FALTAAAAA')
+        logging.critical('De momento solo funciona la Practica 2')
+        #recorrerDirectorioFinal(directorio)
     
 
 
@@ -34,11 +45,11 @@ def logconfig(level):
  The log messages will be formatted to show the log level and the message content.
  """
  level_dict = {
-        'debug': logging.DEBUG,     # Todos los mensajes de log
-        'info': logging.INFO,       # Solo mensajes de INFO en adelante
-        'warning': logging.WARNING, # Solo mensajes de WARNING en adelante
-        'error': logging.ERROR,     # Solo mensajes de ERROR en adelante
-        'critical': logging.CRITICAL# Solo mensajes de CRITICAL 
+        'debug': logging.DEBUG,         # Todos los mensajes de log
+        'info': logging.INFO,           # Solo mensajes de INFO en adelante
+        'warning': logging.WARNING,     # Solo mensajes de WARNING en adelante
+        'error': logging.ERROR,         # Solo mensajes de ERROR en adelante
+        'critical': logging.CRITICAL    # Solo mensajes de CRITICAL 
     }
     
     
@@ -47,6 +58,19 @@ def logconfig(level):
      level = level_dict.get(level, logging.INFO),  # Default a INFO si hay error
      format='%(levelname)s: %(message)s'
  )
+ 
+ logger = logging.getLogger()
+ 
+ # Limpiar handlers existentes
+ for handler in logger.handlers[:]:
+     logger.removeHandler(handler)
+     
+ # Handler para consola (formato simple)
+ console_handler = logging.StreamHandler() 
+ console_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
+ logger.addHandler(console_handler)
+ 
+ 
 
 def logexmpl():
  """
@@ -54,7 +78,7 @@ def logexmpl():
  """
  logging.debug("Este mensaje no aparecerá porque el nivel es INFO.")
  logging.info("Este mensaje SÍ se mostrará.")
- logging.warning("Mensaje de warning.")
+ logging.warning("Mensaje de warning.") #Default
  logging.error("Mensaje de error.")
  logging.critical("Mensaje crítico.")   
 
@@ -137,6 +161,7 @@ def recorrerDirectorio(directorio):
             # vid(cap_path)
             # timestamp(cap_path)
             lib.timestamp(cap_path)
+    
             
 def recorrerCapturas(directorio):
     print('El directorio tiene '+str(len(os.listdir(directorio)))+' capturas')
@@ -188,14 +213,13 @@ def comprobacionindividual(path_cap1,comprobacion):
     None
     """
     lib.comprobacionanual(path_cap1,comprobacion) #Donete
-    lib.MinPacks(path_cap1,comprobacion)    #PASAR POR PARAMENTRO NUMERO DE PACKETS, contar en funcion de IMCP
+    lib.MinPacks(path_cap1,comprobacion, numMin = 4)    #PASAR POR PARAMENTRO NUMERO DE PACKETS, contar en funcion de IMCP
     #lib.MinMacsSrc(path_cap1,comprobacion)  #Es del Router no del PC (maaaal) (probablemente quitar) 
     lib.MinPacksVlan(path_cap1,comprobacion) #Change name, varias comprobaciones 1.(802.1.q) Que exista paquete con vlan 
     #2. Correspondencia de Vlan con el fichero json (con 1 correcto)
     #3. COmprobacion complementaria -> Paquete ICMP E Request (mirar IP origen) 10.0.X.Y1 XXXXXXXXXXXXX 
     
     
-
 
 def comprobacionIdentica(path_cap1, path_cap2, comprobacion1):
     """
@@ -237,6 +261,8 @@ def analizar_capturas(path_cap1, path_cap2,comprobacion):
         comprobaciontemporal(path_cap1, path_cap2,comprobacion)
         
         
+ 
+ 
                
 ##Exponer resultados en un json       
 def exponerResultados(comprobaciones):
@@ -296,8 +322,8 @@ def claseAdiccionarioCopiaIndividual(comprobacion):
             
  
  
-##Comprobaciones Específicas       
-
+ 
+##Comprobaciones Específicas      
  
 def comprobaciontemporal(path_cap1, path_cap2,comprobacion):
     time1 = lib.timestamp(path_cap1)
@@ -379,6 +405,7 @@ En el proceso de verificación, cada captura de red se representa con un objeto 
 
         pdf.output(output_pdf_path)
         logging.info(f"PDF generado: {output_pdf_path}")
+        logging.info('--------------------------------------------------------------------------')
     except FileNotFoundError:
         logging.error(f"El archivo JSON {json_path} no existe.")
     except Exception as e:
@@ -386,16 +413,20 @@ En el proceso de verificación, cada captura de red se representa con un objeto 
         
 
 
+
+
+
+##GUI
 def startGUI():
     """
     Starts the GUI for the program.
     """
     print('Iniciando GUI')
-    logconfig("info")
+    logconfig("info") # no se si al cambiar a critical afecta al gui
     # Configuración de la ventana principal
     ventana = tkinter.Tk()
     ventana.title('TFG JP')
-    ventana.geometry('1000x400') ## A CAMBIARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+    ventana.geometry('1200x800') ## A CAMBIARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
     ventana.configure(bg='#F0F0F0')  # Color de fondo suave
 
     # Estilos 
@@ -447,7 +478,7 @@ def startGUI():
     marco_opciones.pack(pady=15)
 
     # Cuadro de selección ampliado
-    opciones = ['Prueba 1', 'Prueba 2', 'Prueba 3']
+    opciones = ['Practica 1', 'Practica 2', 'Practica 3']
     seleccion = tkinter.StringVar()
     seleccion.set(opciones[1])
 
@@ -477,7 +508,7 @@ def startGUI():
     boton_inicio = tkinter.Button(
         marco_principal,
         text='Iniciar análisis',
-        command=lambda: Inicio(str(cuadro_entrada.get())),
+        command=lambda: Inicio(str(cuadro_entrada.get()),str(seleccion.get())),
         font=estilo_normal,
         bg=color_boton,
         fg='white',
@@ -489,7 +520,7 @@ def startGUI():
     boton_inicio.pack(pady=20)
     
     
-        #Resultados
+    #Resultados
     marco_resultados = tkinter.Frame(ventana, bg='#F0F0F0')
     marco_resultados.pack(fill=tkinter.BOTH, expand=True, padx=20, pady=10)
     
@@ -503,11 +534,34 @@ def startGUI():
     height=10
     )
     consola_logs.pack(fill=tkinter.BOTH, expand=True)
+    
+    
+    #REVISAR IMPORTANTE
+    # Añadir handler personalizado para la GUI
+    class TextWidgetHandler(logging.Handler):
+        def __init__(self, widget):
+            super().__init__()
+            self.widget = widget
+            self.setFormatter(logging.Formatter(
+                '%(asctime)s - %(levelname)s: %(message)s',
+                datefmt='%Y-%m-%d'))
 
+        def emit(self, record):
+            msg = self.format(record)
+            self.widget.configure(state='normal')
+            self.widget.insert(tkinter.END, msg + '\n')
+            self.widget.configure(state='disabled')
+            self.widget.see(tkinter.END)  # Auto-scroll
+
+    # Añadir el handler a logging
+    gui_handler = TextWidgetHandler(consola_logs)
+    gui_handler.setLevel(logging.INFO)  # Puedes ajustar el nivel independientemente
+    logging.getLogger().addHandler(gui_handler)
+   
     ventana.mainloop()
 
 
-def main():
+def main(): #CAMBIAR
     startGUI()
 
 if __name__ == "__main__":

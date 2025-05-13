@@ -141,7 +141,8 @@ def comprobacionanual(path_cap1,comprobacion):
         
 def comprobaciondepaquetes(path_cap1,comprobacion):
     cap = pyshark.FileCapture(path_cap1)
-    if len(cap) < 2:
+    packet_count = sum(1 for _ in cap)
+    if packet_count < 2:
         comprobacion.passed = False
         logging.warning(f'La captura {path_cap1} NO tiene el numero de paquetes necesario')
     else:
@@ -149,9 +150,9 @@ def comprobaciondepaquetes(path_cap1,comprobacion):
     cap.close() 
 
 
-def MinPacks(cap_path,comprobacion):
+def MinPacks(cap_path,comprobacion,numMin):
     """
-    Checks if the cap has a minimun of packetss.
+    Checks if the cap has a minimun of packets.
     Args:
         cap_path (str): The file path to the capture file.
     Returns:
@@ -160,26 +161,49 @@ def MinPacks(cap_path,comprobacion):
     
     abspath = os.path.abspath(cap_path)
     cap = pyshark.FileCapture(abspath)
-    minpaquetes = len(cap)
-    if minpaquetes > 4:
-        logging.debug('La captura cuenta con un minimo de 4 paquetes' + str(minpaquetes) )
+    numpaquetes = sum(1 for _ in cap)
+    if numpaquetes >= numMin:
+        logging.debug('La captura cuenta con un minimo de 4 paquetes' + str(numpaquetes) )
         cap.close()
         suma = comprobacion.nota
         suma += 1
         comprobacion.nota = suma
         return True
-    elif minpaquetes < 5:
-        logging.warning('La captura cuenta con unicamente' + str(minpaquetes ))
+    elif numpaquetes < numMin:
+        logging.warning('La captura cuenta con unicamente ' + str(numpaquetes ) + ' paquetes' + '-----------------------------------------------')
         cap.close()
         return False
     else:
-        logging.critical('Algo ha salido mal, hay un error en el analisis del numero de paquetes de la captura')
+        logging.critical('Algo ha salido mal, hay un error en el analisis del numero de paquetes de la captura, MinPacks')
 
 
 
-def MinPacksVlan(cap_path,comprobacion):
-    print('EnProceso')
-    #tener hecha la funcion de vlan para que funcione
+def MinPacksVlan(cap_path,comprobacion,numMin):
+    """
+    Checks if the cap has a minimun of packets with vlan header?????????????????????????? MEJORAR REDACICON BURRO.
+    Args:
+        cap_path (str): The file path to the capture file.
+    Returns:
+        True if the capture has more than 4 packets, False otherwise.
+    """
+    
+    abspath = os.path.abspath(cap_path)
+    cap = pyshark.FileCapture(abspath, display_filter='vlan')
+    numpaquetes = sum(1 for _ in cap)
+    if numpaquetes >= numMin:
+        logging.debug('La captura cuenta con un minimo de 4 paquetes VLAN' + str(numpaquetes) )
+        cap.close()
+        suma = comprobacion.nota
+        suma += 1
+        comprobacion.nota = suma
+        return True
+    elif numpaquetes < numMin:
+        logging.warning('La captura cuenta con unicamente ' + str(numpaquetes ) + ' paquetes VLAN')
+        cap.close()
+        return False
+    else:
+        logging.critical('Algo ha salido mal, hay un error en el analisis del numero de paquetes de la captura, MinPacks')
+
     
 def MinMacsSrc(cap_patch,comprobacion):
     print('EnProceso')
