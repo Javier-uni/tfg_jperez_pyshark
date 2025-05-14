@@ -1,10 +1,7 @@
-##Primer Boceto TFG
+##TFG
 ##Autor: Javier Pérez
 ##Fecha:
-##Nota: despues de abrir el archivo, cerrarlo
-##NOtas:
-## Llamar con parametros
-##Comprobar atrMac
+
 import os
 import sys
 import pyshark
@@ -18,19 +15,21 @@ from tkinter import scrolledtext
 
 
 
-version = 0.7
-def Inicio(directorio,prueba):
+version = 0.8
+def Inicio(directorio,practica):
     print("EJecutando el programa")
     dir(directorio)
     
     #Incluir aqui las comprobaciones en funcion de la practica
-    if prueba == 'practica 2' or prueba == 'Practica 2':
+    #prueba in practica2 ???
+    if practica == 'practica 2' or practica == 'Practica 2':
         #Recorrer el directorio y analizar las capturas
         #recorrerDirectorio(directorio)
         #recorrerCapturas(directorio)
-        recorrerDirectorioFinal(directorio)
+        recorrerDirectorioFinal(directorio,practica)
         
-    else:
+        
+    elif True:
         logging.critical('FALTAAAAA')
         logging.critical('De momento solo funciona la Practica 2')
         #recorrerDirectorioFinal(directorio)
@@ -100,7 +99,7 @@ class Comprobacion:
     year : str, optional
         The year associated with the capture (default is '2025').
         
-    copia : bool, optional
+    atrcopia : bool, optional
         A boolean attribute indicating if there has been a copy (default is True).
         
     atrexact : bool, optional
@@ -117,17 +116,17 @@ class Comprobacion:
         
     Methods
     -------
-    __init__(self, name, atrmac=True, atrtime=True, year='2025', copia=True, atrexact=True, igual='', passed=True)
+    __init__(self, name, atrmac=True, atrtime=True, year='2025', atrcopia=True, atrexact=True, igual='', passed=True)
         Initializes the Comprobacion class with the provided attributes.
     """
     
-    def __init__(self, name,atrmac=True, atrtime=True,year='2025', 
-                  copia=True, atrexact=True, igual='',passed=True, nota=0):
+    def __init__(self, name, atrmac=True, atrtime=True, year='2025', 
+                  atrcopia=True, atrexact=True, igual='', passed=True, nota=0):
         self.name = name 
         self.atrmac = atrmac
         self.atrtime = atrtime
         self.year = year
-        self.copia = copia 
+        self.atrcopia = atrcopia 
         self.atrexact = atrexact
         self.igual = igual
         self.passed = passed #Incluye comprobacion unica y a pares
@@ -160,7 +159,7 @@ def recorrerDirectorio(directorio):
             # resultadomacs(cap_path)
             # vid(cap_path)
             # timestamp(cap_path)
-            lib.timestamp(cap_path)
+            # lib.timestamp(cap_path)
     
             
 def recorrerCapturas(directorio):
@@ -170,10 +169,10 @@ def recorrerCapturas(directorio):
         archivos.append(str(directorio+'/'+filename))
     for archivo in archivos:
         print('Analizando captura: ' + archivo)
-        lib.resultadomacsrc(archivo)
+        # lib.resultadomacsrc(archivo)
       
         
-def recorrerDirectorioFinal(directorio):
+def recorrerDirectorioFinal(directorio,prueba):
     
     logging.info('El directorio tiene '+str(len(os.listdir(directorio)))+' capturas')
     archivos = []
@@ -188,36 +187,54 @@ def recorrerDirectorioFinal(directorio):
     
     logging.debug(len(archivos)) 
     
-    
+    #COMPROBACION INDIVIDUAL
+    logging.debug('Comprobacion individual')
     for i in range(len(archivos)):
-        comprobacionindividual(archivos[i],comprobaciones[i])
+        comprobacionindividual(archivos[i],comprobaciones[i],prueba)
+        
+        
+        #COMPROBACION DE PARES
         for j in range(i, len(archivos)):
             if i != j:#curioso, podemos quitar esta comprobacion si en range ponemos (i+1, len(archivos))
-             analizar_capturas(archivos[i], archivos[j],comprobaciones[i])
+                logging.debug(f'Comprobando pares: {archivos[i]} y {archivos[j]}')
+                analizar_capturas(archivos[i], archivos[j],comprobaciones[i])
+             
          
     exponerResultados(comprobaciones)   
-    json_to_pdf()
+    json_to_pdf(prueba)
 
 
 
 
 
 ##Analisis de las capturas Individual y llamamiento a pares  
-def comprobacionindividual(path_cap1,comprobacion):
+def comprobacionindividual(path_cap1,comprobacion,prueba):
     """
     Checks if a capture file makes the minimun requirements.
     Parameters:
     path_cap1 (str): The file path of the capture to be checked.
-    comprobacion (object): An object with attributes `atrmac`, `atrtime`, `year`, and `copia` that will be updated based on the checks.
+    comprobacion (object): An object with attributes `atrmac`, `atrtime`, `year`, and `atrcopia` that will be updated based on the checks.
     Returns:
     None
     """
-    lib.comprobacionanual(path_cap1,comprobacion) #Donete
-    lib.MinPacks(path_cap1,comprobacion, numMin = 4)    #PASAR POR PARAMENTRO NUMERO DE PACKETS, contar en funcion de IMCP
-    #lib.MinMacsSrc(path_cap1,comprobacion)  #Es del Router no del PC (maaaal) (probablemente quitar) 
-    lib.MinPacksVlan(path_cap1,comprobacion) #Change name, varias comprobaciones 1.(802.1.q) Que exista paquete con vlan 
-    #2. Correspondencia de Vlan con el fichero json (con 1 correcto)
-    #3. COmprobacion complementaria -> Paquete ICMP E Request (mirar IP origen) 10.0.X.Y1 XXXXXXXXXXXXX 
+    
+    logging.info('Analizando captura: '+str(path_cap1))
+    if prueba == 'practica 2' or prueba == 'Practica 2':
+        lib.comprobacionanual(path_cap1,comprobacion) #Donete
+        lib.MinPacks(path_cap1,comprobacion, numMin = 4)    #PASAR POR PARAMENTRO NUMERO DE PACKETS, contar en funcion de IMCP
+        #lib.MinMacsSrc(path_cap1,comprobacion)  #Es del Router no del PC (maaaal) (probablemente quitar) 
+        lib.MinPacksVlan(path_cap1,comprobacion,numMin=4) #Change name, varias comprobaciones 1.(802.1.q) Que exista paquete con vlan 
+        #2. Correspondencia de Vlan con el fichero json (con 1 correcto)
+        #3. COmprobacion complementaria -> Paquete ICMP E Request (mirar IP origen) 10.0.X.Y1 XXXXXXXXXXXXX 
+        #RESPUESTA (request respond)
+        lib.comprobacionARP(path_cap1,comprobacion) #Comprobacion de ARP FALTARIA RELACIONARLO CON 10.220.X.Y
+    
+    elif True:
+        logging.critical('FALTAAAAA')
+        logging.critical('De momento solo funciona la Practica 2')
+        #recorrerDirectorioFinal(directorio)
+        
+    
     
     
 
@@ -250,7 +267,7 @@ def comprobacionIdentica(path_cap1, path_cap2, comprobacion1):
         
         
 def analizar_capturas(path_cap1, path_cap2,comprobacion):      
-    # Aquí puedes agregar el análisis que desees realizar con las capturas
+    
     logging.info(f"Analizando {path_cap1} y {path_cap2}")
     comprobacionIdentica(path_cap1, path_cap2, comprobacion)
     if  comprobacion.atrexact:
@@ -277,7 +294,7 @@ def exponerResultados(comprobaciones):
             diccionario = claseAdiccionarioCopiaExacta(comprobacion)
             listado_diccionarios.append(diccionario)
         else:
-            if not comprobacion.copia:
+            if not comprobacion.atrcopia:
              logging.debug(f'La captura {comprobacion.name}  es una copia')
              diccionario = claseAdiccionarioCopia(comprobacion)
              listado_diccionarios.append(diccionario)
@@ -304,7 +321,7 @@ def claseAdiccionarioCopia(comprobacion):
     diccionario = {
         'nombre': comprobacion.name,
         'atrmac': comprobacion.atrmac,
-        'copia': comprobacion.copia,
+        'copia': comprobacion.atrcopia,
         'Comentario': 'Esta captura es una copia de: '+ str(comprobacion.igual) + 
         ' comparten mac origen y timestamp de las capturas'  
     }
@@ -340,16 +357,16 @@ def comprobaciontemporal(path_cap1, path_cap2,comprobacion):
                  if time1[1][i] == time2[1][j]:
                      logging.warning('Las capturas tienen los mismos tiempos de captura')
                      comprobacion.atrtime = False
-                     comprobacion.copia = False
+                     comprobacion.atrcopia = False
                      comprobacion.igual= str({path_cap2})
                      comprobacion.passed = False
-                     return
+                     return False
     
 
 
 
 ##Json a pdf
-def json_to_pdf(json_path='resultados.json', output_pdf_path='resultados.pdf'):
+def json_to_pdf(practica,json_path='resultados.json'):
     """
     Converts a JSON file to a PDF report.
     
@@ -357,6 +374,8 @@ def json_to_pdf(json_path='resultados.json', output_pdf_path='resultados.pdf'):
         json_path (str): Path to the input JSON file.
         output_pdf_path (str): Path to save the generated PDF file.
     """
+    npractica = practica.replace(" ", "")
+    output_pdf_path = f"Resultados{npractica}.pdf"
     try:
         with open(json_path, 'r') as f:
             data = json.load(f)

@@ -186,21 +186,19 @@ def MinPacksVlan(cap_path,comprobacion,numMin):
     Returns:
         True if the capture has more than 4 packets, False otherwise.
     """
+    logging.critical('MinPacksVlan: Falta por terminar esta funcion')
     
     abspath = os.path.abspath(cap_path)
     cap = pyshark.FileCapture(abspath, display_filter='vlan')
     numpaquetes = sum(1 for _ in cap)
+    cap.close()
     if numpaquetes >= numMin:
         logging.debug('La captura cuenta con un minimo de 4 paquetes VLAN' + str(numpaquetes) )
-        cap.close()
-        suma = comprobacion.nota
-        suma += 1
-        comprobacion.nota = suma
-        return True
+
     elif numpaquetes < numMin:
         logging.warning('La captura cuenta con unicamente ' + str(numpaquetes ) + ' paquetes VLAN')
-        cap.close()
-        return False
+        
+    
     else:
         logging.critical('Algo ha salido mal, hay un error en el analisis del numero de paquetes de la captura, MinPacks')
 
@@ -208,3 +206,46 @@ def MinPacksVlan(cap_path,comprobacion,numMin):
 def MinMacsSrc(cap_patch,comprobacion):
     print('EnProceso')
     
+
+
+def comprobacionARP(path_cap1,comprobacion):
+    """
+    Checks if the ARP protocol is present in the capture file.
+    Args:
+        path_cap1 (str): The file path to the capture file.
+    Returns:
+        True if ARP is present, False otherwise.
+    """
+    print('FALTA TOQUETEAR LA CLASE COMPROBACION EN ESTA FUNCION')
+    abspath = os.path.abspath(path_cap1)
+    cap = pyshark.FileCapture(abspath, display_filter='arp.opcode == 1')
+    
+    
+    ARPRequest = sum(1 for _ in cap)
+    cap.close()
+    
+    cap = pyshark.FileCapture(abspath, display_filter='arp.opcode == 2')
+    ARPResponse = sum(1 for _ in cap)
+    cap.close()
+    
+    if ARPRequest > 0 and ARPResponse > 0:
+        logging.debug('La captura tiene peticiones y respuestas ARP')
+        logging.debug('ARP Normal')
+      
+    elif ARPRequest == 0 and ARPResponse == 0:
+        logging.info('La captura NO tiene peticiones ni respuestas ARP')
+        logging.debug('ARP Normal, se ha capturado ping ya empezado')
+        
+
+    elif ARPRequest > 0 and ARPResponse == 0:
+        #if ARPRequest == ARPResponse:
+        logging.warning('La captura tiene peticiones ARP pero NO tiene respuestas')
+        logging.warning('MAL, la captura no es normal')
+        #Replantear si existen varias peticiones ARP sin respuesta
+        comprobacion.passed = False
+        
+    elif ARPRequest == 0 and ARPResponse > 0:
+        logging.debug('La captura tiene respuestas ARP pero NO tiene peticiones')
+        logging.debug('ARP Rarete, se ha capturado ping justo al hacer la peticion')
+    else:
+        logging.critical('Algo ha salido mal, hay un error en el analisis de la captura, comprobacionARP')
