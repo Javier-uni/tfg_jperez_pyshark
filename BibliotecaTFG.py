@@ -216,7 +216,7 @@ def comprobacionARP(path_cap1,comprobacion):
     Returns:
         True if ARP is present, False otherwise.
     """
-    print('FALTA TOQUETEAR LA CLASE COMPROBACION EN ESTA FUNCION')
+    logging.info(' falta toquetear el componente')
     abspath = os.path.abspath(path_cap1)
     cap = pyshark.FileCapture(abspath, display_filter='arp.opcode == 1')
     

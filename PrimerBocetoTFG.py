@@ -51,8 +51,8 @@ def logconfig(level):
         'critical': logging.CRITICAL    # Solo mensajes de CRITICAL 
     }
     
-    
-    
+#No afecta ya que cambia la configuracion inicial de los logs
+     
  logging.basicConfig(
      level = level_dict.get(level, logging.INFO),  # Default a INFO si hay error
      format='%(levelname)s: %(message)s'
@@ -67,6 +67,7 @@ def logconfig(level):
  # Handler para consola (formato simple)
  console_handler = logging.StreamHandler() 
  console_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
+ console_handler.setLevel(level_dict.get(level, logging.critical))  # Ajustar el nivel del handler
  logger.addHandler(console_handler)
  
  
@@ -156,6 +157,8 @@ def recorrerDirectorio(directorio):
         cap_path = os.path.join(directorio, filename)
         if os.path.isfile(cap_path):
             print('Analizando captura: ' + cap_path)
+            comprobacion = Comprobacion(filename)
+            comprobacionindividual(cap_path, comprobacion, 'practica 2')
             # resultadomacs(cap_path)
             # vid(cap_path)
             # timestamp(cap_path)
@@ -601,4 +604,5 @@ if __name__ == "__main__":
         # print('De momento ejecuto P2')
         # main
         startGUI()
+        Inicio('capturas03','practica 2')
 
