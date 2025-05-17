@@ -21,6 +21,7 @@ puestos.json
 # Ignore all Python files except specific ones
 *.py
 !PrimerBocetoTFG.py
+!TFG.py
 !Prueba01.py
 !Prueba02.py
 !BibliotecaTFG.py
