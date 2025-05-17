@@ -51,13 +51,15 @@ def logconfig(level):
         'critical': logging.CRITICAL    # Solo mensajes de CRITICAL 
     }
     
-#No afecta ya que cambia la configuracion inicial de los logs
+#Cambia la configuracion inicial de los logs
+#No llega a funcionar ya que los logger creados los edito más tarde a mi gusto
      
  logging.basicConfig(
      level = level_dict.get(level, logging.INFO),  # Default a INFO si hay error
      format='%(levelname)s: %(message)s'
  )
  
+ #Saco logger para poder borrar los handlers
  logger = logging.getLogger()
  
  # Limpiar handlers existentes
@@ -181,6 +183,7 @@ def recorrerDirectorioFinal(directorio,prueba):
     archivos = []
     comprobaciones = []
     
+    
     for filename in os.listdir(directorio):
         archivos.append(str(directorio+'/'+filename))
         comprobacion = Comprobacion(filename)
@@ -191,18 +194,38 @@ def recorrerDirectorioFinal(directorio,prueba):
     logging.debug(len(archivos)) 
     
     #COMPROBACION INDIVIDUAL
-    logging.debug('Comprobacion individual')
+    logging.info('Comprobacion individual')
+    diccionariomacs = {}
     for i in range(len(archivos)):
         comprobacionindividual(archivos[i],comprobaciones[i],prueba)
+
+        #Extraccion de MACs y paso a diccionario
+        nombre = comprobaciones[i].name
+        macs = lib.resultadomacsrc(archivos[i])  
+        diccionariomacs[nombre] = macs
         
         
-        #COMPROBACION DE PARES
-        for j in range(i, len(archivos)):
-            if i != j:#curioso, podemos quitar esta comprobacion si en range ponemos (i+1, len(archivos))
-                logging.debug(f'Comprobando pares: {archivos[i]} y {archivos[j]}')
-                analizar_capturas(archivos[i], archivos[j],comprobaciones[i])
+    #COMPROBACION DE PARES
+    nombres = list(diccionariomacs.keys())
+
+    for i in range(len(nombres)):
+        for j in range(i+1, len(nombres)):
+            logging.info(f"Comparando {nombres[i]} y {nombres[j]}")
+            comprobacionIdentica(archivos[i], archivos[j], comprobaciones[i],comprobaciones[j])
+            
+
+            if (diccionariomacs[nombres[i]] == diccionariomacs[nombres[j]]) and \
+               (diccionariomacs[nombres[i]] != 0) and \
+               (not(comprobaciones[i].atrexact == False) or not(comprobaciones[j].atrexact == False)):
+                # REVISAR SI ES == O IN
+                
+                comprobaciones[i].atrmac = False
+                comprobaciones[j].atrmac = False
+                logging.info(f"{nombres[i]} y {nombres[j]} tienen las mismas MACs: {diccionariomacs[nombres[i]]}")
+                comprobaciontemporal(archivos[i], archivos[j], comprobaciones[i], comprobaciones[j])
+
              
-         
+    #COMPROBACION DE PARES
     exponerResultados(comprobaciones)   
     json_to_pdf(prueba)
 
@@ -241,7 +264,7 @@ def comprobacionindividual(path_cap1,comprobacion,prueba):
     
     
 
-def comprobacionIdentica(path_cap1, path_cap2, comprobacion1):
+def comprobacionIdentica(path_cap1, path_cap2, comprobacion1, comprobacion2):
     """
     Checks if two capture files are exactly the same.
     This function compares two files specified by their paths and updates the 
@@ -264,11 +287,15 @@ def comprobacionIdentica(path_cap1, path_cap2, comprobacion1):
         logging.warning('  Path 2: '+ str(path_cap2))
         comprobacion1.atrexact = False
         comprobacion1.passed = False
-        comprobacion1.igual= str({path_cap2})
+        comprobacion1.igual= os.path.basename(path_cap2)
+
+        comprobacion2.atrexact = False
+        comprobacion2.passed = False
+        comprobacion2.igual= os.path.basename(path_cap1)
     else:
         logging.debug("Las capturas no son identicas.")
         
-        
+#OJO DECREPADA       
 def analizar_capturas(path_cap1, path_cap2,comprobacion):      
     
     logging.info(f"Analizando {path_cap1} y {path_cap2}")
@@ -288,21 +315,25 @@ def analizar_capturas(path_cap1, path_cap2,comprobacion):
 def exponerResultados(comprobaciones):
     logging.debug('Exponiendo resultados')
     listado_diccionarios = []
+    listado_hechos = []
     with open('resultados.json', 'w') as file:
      for comprobacion in comprobaciones:
         
-        logging.debug('Analizando captura: '+comprobacion.name)
-        if not comprobacion.atrexact:
-            logging.debug(f'La captura {comprobacion.name}  es una copia exacta')
+        logging.debug('Exponiendo captura: '+comprobacion.name + ' si procede')
+        if (not comprobacion.atrexact) and (comprobacion.name not in listado_hechos):
+            listado_hechos.append(comprobacion.igual)
+            logging.debug(f'La captura {comprobacion.name}  es una copia exacta, siendo expuesta')
             diccionario = claseAdiccionarioCopiaExacta(comprobacion)
             listado_diccionarios.append(diccionario)
         else:
-            if not comprobacion.atrcopia:
-             logging.debug(f'La captura {comprobacion.name}  es una copia')
-             diccionario = claseAdiccionarioCopia(comprobacion)
-             listado_diccionarios.append(diccionario)
+            if (not comprobacion.atrcopia) and (comprobacion.name not in listado_hechos):
+                listado_hechos.append(comprobacion.igual)
+                logging.debug(f'La captura {comprobacion.name}  es una copia')
+                diccionario = claseAdiccionarioCopia(comprobacion)
+                listado_diccionarios.append(diccionario)
             else:
-             if not comprobacion.passed:
+             if (not comprobacion.passed) and (comprobacion.name not in listado_hechos):
+                listado_hechos.append(comprobacion.igual)
                 logging.debug(f'La captura {comprobacion.name}  no ha pasado la comprobacion')
                 diccionario = claseAdiccionarioCopiaIndividual(comprobacion)
                 listado_diccionarios.append(diccionario)
@@ -315,7 +346,8 @@ def claseAdiccionarioCopiaExacta(comprobacion):
         'nombre': comprobacion.name,
         'atrmac': comprobacion.atrmac,
         'copia': comprobacion.atrexact,
-        'Comentario': 'Esta captura es una copia exacta de:'+ str(comprobacion.igual) 
+        'igual': comprobacion.igual,
+        'Comentario': 'La captura '+ str(comprobacion.name) +' es una copia exacta de '+ str(comprobacion.igual)+'.'
     }
     return diccionario
 
@@ -325,8 +357,9 @@ def claseAdiccionarioCopia(comprobacion):
         'nombre': comprobacion.name,
         'atrmac': comprobacion.atrmac,
         'copia': comprobacion.atrcopia,
-        'Comentario': 'Esta captura es una copia de: '+ str(comprobacion.igual) + 
-        ' comparten mac origen y timestamp de las capturas'  
+        'igual': comprobacion.igual,
+        'Comentario': 'La captura '+ str(comprobacion.name) +' es una copia de '+ str(comprobacion.igual) + 
+        ' comparten mac origen y timestamp de las capturas.'  
     }
     return diccionario
         
@@ -336,7 +369,8 @@ def claseAdiccionarioCopiaIndividual(comprobacion):
         'nombre': comprobacion.name,
         'atrmac': comprobacion.atrmac,
         'Passed': comprobacion.passed,
-        'Comentario': 'Esta captura no ha pasado la comprobacion'  
+        'igual': comprobacion.igual,
+        'Comentario': 'Esta captura no ha pasado la comprobacion individual.'  
     }
     return diccionario
             
@@ -344,26 +378,40 @@ def claseAdiccionarioCopiaIndividual(comprobacion):
  
  
 ##Comprobaciones Específicas      
- 
-def comprobaciontemporal(path_cap1, path_cap2,comprobacion):
+#REVISAR SI == O IN ---------------------------------------------------------------------
+def comprobaciontemporal(path_cap1, path_cap2,comprobacion1,comprobacion2):
     time1 = lib.timestamp(path_cap1)
-    time2 = lib.timestamp(path_cap2)       
+    time2 = lib.timestamp(path_cap2) 
+    sigue = False      
     if time1 == time2:
         logging.warning('Las capturas tienen exactamente los mismos tiempos de captura')
-        comprobacion.atrtime = False
-        comprobacion.igual= str({path_cap2})
-        comprobacion.passed = False
+        comprobacion1.atrtime = False
+        comprobacion1.igual= os.path.basename(path_cap2)
+        comprobacion1.passed = False
+        
+        comprobacion2.atrtime = False
+        comprobacion2.igual= os.path.basename(path_cap1)
+        comprobacion2.passed = False
+        
     else:
         for i in range(len(time1[0])): 
-         for j in range(len(time2[0])):
-             if time1[0][i] == time2[0][j]:
-                 if time1[1][i] == time2[1][j]:
-                     logging.warning('Las capturas tienen los mismos tiempos de captura')
-                     comprobacion.atrtime = False
-                     comprobacion.atrcopia = False
-                     comprobacion.igual= str({path_cap2})
-                     comprobacion.passed = False
-                     return False
+            for j in range(len(time2[0])):
+                if (time1[0][i] == time2[0][j]) and not sigue:
+                    if time1[1][i] == time2[1][j]:
+                        sigue = True
+                        logging.warning('Las capturas tienen los mismos tiempos de captura('+comprobacion1.name+'y'+comprobacion2.name+')')
+                        comprobacion1.atrtime = False
+                        comprobacion1.atrcopia = False
+                        comprobacion1.igual= os.path.basename(path_cap2)
+                        comprobacion1.passed = False
+                     
+                     
+                        comprobacion2.atrtime = False
+                        comprobacion2.atrcopia = False
+                        comprobacion2.igual= os.path.basename(path_cap1)
+                        comprobacion2.passed = False
+                        break
+                
     
 
 
@@ -389,15 +437,19 @@ def json_to_pdf(practica,json_path='resultados.json'):
         pdf.set_font("Arial", size=12)
 
         for i, item in enumerate(data, 1):
-            pdf.set_font("Arial", style='B', size=14)  # Cambia la fuente a Arial, negrita, tamaño 14
-            pdf.cell(0, 10, f"Problema {i}", ln=True)
+            if isinstance(item, dict):  # Ensure item is a dictionary
+                pdf.set_font("Arial", style='B', size=14)  # Cambia la fuente a Arial, negrita, tamaño 14
+                pdf.cell(0, 10, f"Copia Detectada: {i}", ln=True)
 
-            pdf.set_font("Arial", style='', size=12)  # Cambia la fuente a Arial, normal, tamaño 12
-            pdf.cell(0, 10, f"Nombre: {item.get('nombre', '')}", ln=True)
-            pdf.cell(0, 10, f"AtrMAC: {item.get('atrmac', '')}", ln=True)
-            pdf.cell(0, 10, f"Copia: {item.get('copia', '')}", ln=True)
-            pdf.multi_cell(0, 10, f"Comentario: {item.get('Comentario', '')}")
-            pdf.ln(7)  # espacio entre capturas
+                pdf.set_font("Arial", style='', size=12)  # Cambia la fuente a Arial, normal, tamaño 12
+                pdf.cell(0, 10, f"Captura1: {item.get('nombre', '')}", ln=True)
+                pdf.cell(0, 10, f"Captura2: {item.get('igual', '')}", ln=True)
+                pdf.cell(0, 10, f"AtrMAC: {item.get('atrmac', '')}", ln=True)
+                pdf.cell(0, 10, f"Copia: {item.get('copia', '')}", ln=True)
+                pdf.multi_cell(0, 10, f"Comentario: {item.get('Comentario', '')}")
+                pdf.ln(7)  # espacio entre capturas
+            else:
+                logging.warning(f"Unexpected data format: {item}")
         
 
 
@@ -605,4 +657,5 @@ if __name__ == "__main__":
         # main
         startGUI()
         Inicio('capturas03','practica 2')
+
 

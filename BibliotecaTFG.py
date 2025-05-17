@@ -41,7 +41,7 @@ def resultadomacsrc(cap_path):
     
     macs = []
     abspath = os.path.abspath(cap_path)
-    cap = pyshark.FileCapture(abspath)
+    cap = pyshark.FileCapture(abspath, display_filter='icmp.type == 8')
     for pkt in cap:
         if hasattr(pkt, 'icmp'):
             if pkt.icmp.type == '8':#Cuidado, 8 es un string
@@ -50,6 +50,9 @@ def resultadomacsrc(cap_path):
                     macs.append(pkt.eth.src)
     logging.debug(macs)
     cap.close()
+    if len(macs) == 0:
+        logging.warning('No se ha encontrado la MAC de origen')
+        return 0
     return macs
 
 
@@ -177,7 +180,7 @@ def MinPacks(cap_path,comprobacion,numMin):
         logging.critical('Algo ha salido mal, hay un error en el analisis del numero de paquetes de la captura, MinPacks')
 
 
-
+#FALTAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 def MinPacksVlan(cap_path,comprobacion,numMin):
     """
     Checks if the cap has a minimun of packets with vlan header?????????????????????????? MEJORAR REDACICON BURRO.
@@ -186,7 +189,6 @@ def MinPacksVlan(cap_path,comprobacion,numMin):
     Returns:
         True if the capture has more than 4 packets, False otherwise.
     """
-    logging.critical('MinPacksVlan: Falta por terminar esta funcion')
     
     abspath = os.path.abspath(cap_path)
     cap = pyshark.FileCapture(abspath, display_filter='vlan')
@@ -207,7 +209,7 @@ def MinMacsSrc(cap_patch,comprobacion):
     print('EnProceso')
     
 
-
+#FALTA TOQUETEAR EL COMPONENTEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 def comprobacionARP(path_cap1,comprobacion):
     """
     Checks if the ARP protocol is present in the capture file.
@@ -216,7 +218,7 @@ def comprobacionARP(path_cap1,comprobacion):
     Returns:
         True if ARP is present, False otherwise.
     """
-    logging.info(' falta toquetear el componente')
+    
     abspath = os.path.abspath(path_cap1)
     cap = pyshark.FileCapture(abspath, display_filter='arp.opcode == 1')
     
@@ -249,3 +251,26 @@ def comprobacionARP(path_cap1,comprobacion):
         logging.debug('ARP Rarete, se ha capturado ping justo al hacer la peticion')
     else:
         logging.critical('Algo ha salido mal, hay un error en el analisis de la captura, comprobacionARP')
+        
+        
+        
+def comprobacionICMP(path_cap1,comprobacion):
+    """
+    Checks if the ICMP is coherent with the VLAN.
+    Args:
+        path_cap1 (str): The file path to the capture file.
+    Returns:
+        True if ICMP is present, False otherwise.
+    """
+    
+    abspath = os.path.abspath(path_cap1)
+    cap = pyshark.FileCapture(abspath, display_filter='icmp.type == 8')
+    for pkt in cap:
+        if hasattr(pkt, 'icmp'):
+            if pkt.icmp.type == '8':
+                logging.debug('La captura tiene peticiones ICMP echo request')
+                logging.debug('ICMP Normal')
+                IP = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                break
+
+    cap.close()
