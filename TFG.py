@@ -13,10 +13,12 @@ import BibliotecaTFG as lib
 import tkinter
 from tkinter import scrolledtext
 import threading
+import asyncio
 
 
 version = 0.8
 def Inicio(directorio,practica):
+    #Es necesario async para pyshark por lo que antes de Inio debo llamar a async_wrapper
     print("EJecutando el programa")
     dir(directorio)
     
@@ -211,7 +213,7 @@ def recorrerDirectorioFinal(directorio,prueba):
     for i in range(len(nombres)):
         for j in range(i+1, len(nombres)):
             logging.info(f"Comparando {nombres[i]} y {nombres[j]}")
-            comprobacionIdentica(archivos[i], archivos[j], comprobaciones[i],comprobaciones[j])
+            lib.comprobacionIdentica(archivos[i], archivos[j], comprobaciones[i],comprobaciones[j])
             
 
             if (diccionariomacs[nombres[i]] == diccionariomacs[nombres[j]]) and \
@@ -264,42 +266,11 @@ def comprobacionindividual(path_cap1,comprobacion,prueba):
     
     
 
-def comprobacionIdentica(path_cap1, path_cap2, comprobacion1, comprobacion2):
-    """
-    Checks if two capture files are exactly the same.
-    This function compares two files specified by their paths and updates the 
-    `comprobacion1` object based on whether the files are identical or not.
-    Parameters:
-    path_cap1 (str): The file path of the first capture.
-    path_cap2 (str): The file path of the second capture.
-    comprobacion1 (object): An object with an attribute `atrexact` that will be 
-                            set to False if the files are identical, and True otherwise.
-    Returns:
-    None
-    """
-    #CUIDADO CON LOS PATHS
-    
-    abspath1 = os.path.abspath(path_cap1)
-    abspath2 = os.path.abspath(path_cap2)
-    if filecmp.cmp(abspath1, abspath2, shallow=False):
-        logging.warning("Las capturas son idénticas: ")
-        logging.warning('  Path 1: '+ str(path_cap1))
-        logging.warning('  Path 2: '+ str(path_cap2))
-        comprobacion1.atrexact = False
-        comprobacion1.passed = False
-        comprobacion1.igual= os.path.basename(path_cap2)
-
-        comprobacion2.atrexact = False
-        comprobacion2.passed = False
-        comprobacion2.igual= os.path.basename(path_cap1)
-    else:
-        logging.debug("Las capturas no son identicas.")
-        
 #OJO DECREPADA       
 def analizar_capturas(path_cap1, path_cap2,comprobacion):      
     
     logging.info(f"Analizando {path_cap1} y {path_cap2}")
-    comprobacionIdentica(path_cap1, path_cap2, comprobacion)
+    lib.comprobacionIdentica(path_cap1, path_cap2, comprobacion)
     if  comprobacion.atrexact:
      mac1 = lib.resultadomacsrc(path_cap1)
      mac2 = lib.resultadomacsrc(path_cap2)
@@ -500,7 +471,7 @@ def startGUI():
     # Configuración de la ventana principal
     ventana = tkinter.Tk()
     ventana.title('TFG JP')
-    ventana.geometry('1200x800') ## A CAMBIARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+    ventana.geometry('1200x800') ## Tamaño probablemente no óptimo A CAMBIARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
     ventana.configure(bg='#F0F0F0')  # Color de fondo suave
 
     # Estilos 
@@ -582,7 +553,10 @@ def startGUI():
     boton_inicio = tkinter.Button(
         marco_principal,
         text='Iniciar análisis',
-        command=lambda: Inicio(str(cuadro_entrada.get()),str(seleccion.get())),
+        command=lambda: threading.Thread(
+            target=async_wrapper_inicio, 
+            args=(str(cuadro_entrada.get()), 
+                            str(seleccion.get()))).start(),
         font=estilo_normal,
         bg=color_boton,
         fg='white',
@@ -622,17 +596,38 @@ def startGUI():
 
         def emit(self, record):
             msg = self.format(record)
-            self.widget.configure(state='normal')
-            self.widget.insert(tkinter.END, msg + '\n')
-            self.widget.configure(state='disabled')
-            self.widget.see(tkinter.END)  # Auto-scroll
-
+            def safe_append():
+                self.widget.configure(state='normal')
+                self.widget.insert(tkinter.END, msg + '\n')
+                self.widget.configure(state='disabled')
+                self.widget.see(tkinter.END)  # Auto-scroll
+            self.widget.after(0, safe_append)  # Usar after para sincronizar
+    
+    
     # Añadir el handler a logging
     gui_handler = TextWidgetHandler(consola_logs)
     gui_handler.setLevel(logging.INFO)  # Puedes ajustar el nivel independientemente
     logging.getLogger().addHandler(gui_handler)
    
     ventana.mainloop()
+
+
+
+
+
+
+
+
+def async_wrapper_inicio(directorio, practica):
+    # Crea un nuevo event loop para este hilo
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    try:
+        Inicio(directorio, practica)  
+    finally:
+        loop.close()  # Limpieza
+
 
 
 def main(): #CAMBIAR
@@ -656,6 +651,6 @@ if __name__ == "__main__":
         # print('De momento ejecuto P2')
         # main
         startGUI()
-        Inicio('capturas03','practica 2')
+        async_wrapper_inicio('capturas03','practica 2')
 
 

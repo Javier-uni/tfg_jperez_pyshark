@@ -1,7 +1,7 @@
 import pyshark
 import logging
 import os
-
+import filecmp
 
 
 
@@ -85,7 +85,7 @@ def timestamps(cap_path):
     nanosegs = []
     times = [fecha, nanosegs]
     abspath = os.path.abspath(cap_path)
-    cap = pyshark.FileCapture(abspath)
+    cap = pyshark.FileCapture(abspath,use_json=True)
     for pkt in cap:
         #no haria ni falta el hasttr
         if hasattr(pkt, 'frame_info'):
@@ -142,6 +142,45 @@ def comprobacionanual(path_cap1,comprobacion):
    
  ##comprobaciondepaquetes y minpacks...  
         
+        
+        
+
+def comprobacionIdentica(path_cap1, path_cap2, comprobacion1, comprobacion2):
+    """
+    Checks if two capture files are exactly the same.
+    This function compares two files specified by their paths and updates the 
+    `comprobacion1` object based on whether the files are identical or not.
+    Parameters:
+    path_cap1 (str): The file path of the first capture.
+    path_cap2 (str): The file path of the second capture.
+    comprobacion1 (object): An object with an attribute `atrexact` that will be 
+                            set to False if the files are identical, and True otherwise.
+    Returns:
+    None
+    """
+    #CUIDADO CON LOS PATHS
+    
+    abspath1 = os.path.abspath(path_cap1)
+    abspath2 = os.path.abspath(path_cap2)
+    if filecmp.cmp(abspath1, abspath2, shallow=False):
+        logging.warning("Las capturas son idénticas: ")
+        logging.warning('  Path 1: '+ str(path_cap1))
+        logging.warning('  Path 2: '+ str(path_cap2))
+        comprobacion1.atrexact = False
+        comprobacion1.passed = False
+        comprobacion1.igual= os.path.basename(path_cap2)
+
+        comprobacion2.atrexact = False
+        comprobacion2.passed = False
+        comprobacion2.igual= os.path.basename(path_cap1)
+    else:
+        logging.debug("Las capturas no son identicas.")
+        
+        
+        
+        
+        
+        
 def comprobaciondepaquetes(path_cap1,comprobacion):
     cap = pyshark.FileCapture(path_cap1)
     packet_count = sum(1 for _ in cap)
@@ -178,6 +217,7 @@ def MinPacks(cap_path,comprobacion,numMin):
         return False
     else:
         logging.critical('Algo ha salido mal, hay un error en el analisis del numero de paquetes de la captura, MinPacks')
+        cap.close()
 
 
 #FALTAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
