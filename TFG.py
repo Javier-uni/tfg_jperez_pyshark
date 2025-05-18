@@ -55,7 +55,6 @@ def logconfig(level):
     
 #Cambia la configuracion inicial de los logs
 #No llega a funcionar ya que los logger creados los edito más tarde a mi gusto
-     
  logging.basicConfig(
      level = level_dict.get(level, logging.INFO),  # Default a INFO si hay error
      format='%(levelname)s: %(message)s'
@@ -116,7 +115,7 @@ class Comprobacion:
     passed : bool, optional
         A boolean attribute indicating if the verification passed (default is True).
     
-    Nota : int, optional
+    nota : int, optional
         A numeric attribute (default is 0).
         
     Methods
@@ -239,28 +238,34 @@ def recorrerDirectorioFinal(directorio,prueba):
 def comprobacionindividual(path_cap1,comprobacion,prueba):
     """
     Checks if a capture file makes the minimun requirements.
+
     Parameters:
-    path_cap1 (str): The file path of the capture to be checked.
-    comprobacion (object): An object with attributes `atrmac`, `atrtime`, `year`, and `atrcopia` that will be updated based on the checks.
-    Returns:
-    None
+        path_cap1 (str): The file path of the capture to be checked.
+        comprobacion (object): An object with attributes `atrmac`, `atrtime`, `year`, and `atrcopia` that will be updated based on the checks.
+        prueba (str): The name of the prueba.
+
     """
     
     logging.info('Analizando captura: '+str(path_cap1))
     if prueba == 'practica 2' or prueba == 'Practica 2':
-        lib.comprobacionanual(path_cap1,comprobacion) #Donete
-        lib.MinPacks(path_cap1,comprobacion, numMin = 4)    #PASAR POR PARAMENTRO NUMERO DE PACKETS, contar en funcion de IMCP
-        #lib.MinMacsSrc(path_cap1,comprobacion)  #Es del Router no del PC (maaaal) (probablemente quitar) 
-        lib.MinPacksVlan(path_cap1,comprobacion,numMin=4) #Change name, varias comprobaciones 1.(802.1.q) Que exista paquete con vlan 
+        lib.comprobacionanual(path_cap1,comprobacion)
+        lib.MinPacks(path_cap1,comprobacion, numMin = 4)  #contar en funcion de IMCP
+        #lib.MinMacsSrc(path_cap1,comprobacion)  #Es del Router no del PC (maaaal) (probablemente quitar)
+        #Comentar con Carlos, ICMP echo req y reply?
+        lib.minPacksVlan(path_cap1, comprobacion, numMin=4) #Change name, varias comprobaciones 1.(802.1.q) Que exista paquete con vlan
         #2. Correspondencia de Vlan con el fichero json (con 1 correcto)
         #3. COmprobacion complementaria -> Paquete ICMP E Request (mirar IP origen) 10.0.X.Y1 XXXXXXXXXXXXX 
         #RESPUESTA (request respond)
         lib.comprobacionARP(path_cap1,comprobacion) #Comprobacion de ARP FALTARIA RELACIONARLO CON 10.220.X.Y
+        lib.comprobacionICMP(path_cap1,comprobacion)
     
     elif True:
         logging.critical('FALTAAAAA')
         logging.critical('De momento solo funciona la Practica 2')
         #recorrerDirectorioFinal(directorio)
+
+
+
         
     
     
@@ -294,57 +299,24 @@ def exponerResultados(comprobaciones):
         if (not comprobacion.atrexact) and (comprobacion.name not in listado_hechos):
             listado_hechos.append(comprobacion.igual)
             logging.debug(f'La captura {comprobacion.name}  es una copia exacta, siendo expuesta')
-            diccionario = claseAdiccionarioCopiaExacta(comprobacion)
+            diccionario = lib.claseAdiccionarioCopiaExacta(comprobacion)
             listado_diccionarios.append(diccionario)
         else:
             if (not comprobacion.atrcopia) and (comprobacion.name not in listado_hechos):
                 listado_hechos.append(comprobacion.igual)
                 logging.debug(f'La captura {comprobacion.name}  es una copia')
-                diccionario = claseAdiccionarioCopia(comprobacion)
+                diccionario = lib.claseAdiccionarioCopia(comprobacion)
                 listado_diccionarios.append(diccionario)
             else:
              if (not comprobacion.passed) and (comprobacion.name not in listado_hechos):
                 listado_hechos.append(comprobacion.igual)
                 logging.debug(f'La captura {comprobacion.name}  no ha pasado la comprobacion')
-                diccionario = claseAdiccionarioCopiaIndividual(comprobacion)
+                diccionario = lib.claseAdiccionarioCopiaIndividual(comprobacion)
                 listado_diccionarios.append(diccionario)
      json.dump(listado_diccionarios, file, indent=4)
          
              
 
-def claseAdiccionarioCopiaExacta(comprobacion):
-    diccionario = {
-        'nombre': comprobacion.name,
-        'atrmac': comprobacion.atrmac,
-        'copia': comprobacion.atrexact,
-        'igual': comprobacion.igual,
-        'Comentario': 'La captura '+ str(comprobacion.name) +' es una copia exacta de '+ str(comprobacion.igual)+'.'
-    }
-    return diccionario
-
-
-def claseAdiccionarioCopia(comprobacion):
-    diccionario = {
-        'nombre': comprobacion.name,
-        'atrmac': comprobacion.atrmac,
-        'copia': comprobacion.atrcopia,
-        'igual': comprobacion.igual,
-        'Comentario': 'La captura '+ str(comprobacion.name) +' es una copia de '+ str(comprobacion.igual) + 
-        ' comparten mac origen y timestamp de las capturas.'  
-    }
-    return diccionario
-        
-
-def claseAdiccionarioCopiaIndividual(comprobacion):
-    diccionario = {
-        'nombre': comprobacion.name,
-        'atrmac': comprobacion.atrmac,
-        'Passed': comprobacion.passed,
-        'igual': comprobacion.igual,
-        'Comentario': 'Esta captura no ha pasado la comprobacion individual.'  
-    }
-    return diccionario
-            
  
  
  
@@ -393,8 +365,9 @@ def json_to_pdf(practica,json_path='resultados.json'):
     Converts a JSON file to a PDF report.
     
     Args:
+        practica (str): Name of the practica.
         json_path (str): Path to the input JSON file.
-        output_pdf_path (str): Path to save the generated PDF file.
+
     """
     npractica = practica.replace(" ", "")
     output_pdf_path = f"Resultados{npractica}.pdf"
