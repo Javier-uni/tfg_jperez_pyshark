@@ -139,6 +139,17 @@ def timestamp(cap_path):
 #  region FUNCIONES DE COMPROBACION  #
 # ──────────────────────────────── #
 def comprobacionanual(path_cap1, comprobacion):
+    """
+    Checks if the year in a Wireshark capture file matches the current year.
+
+    Args:
+        path_cap1 (str): The file path to the Wireshark capture file.
+        comprobacion (object): An object with attributes 'year' and 'atrtime' that will be 
+                              used to check and store the year validation result.
+
+    Returns:
+        None: Updates the comprobacion.atrtime attribute to False if the year doesn't match.
+    """
     time = timestamps(path_cap1)
     if not str(comprobacion.year) in str(time[0]):
         comprobacion.atrtime = False
@@ -147,18 +158,20 @@ def comprobacionanual(path_cap1, comprobacion):
 
 
 
-def comprobacionIdentica(path_cap1, path_cap2, comprobacion1, comprobacion2):
+def comprobacion_identica(path_cap1, path_cap2, comprobacion1, comprobacion2):
     """
     Checks if two capture files are exactly the same.
     This function compares two files specified by their paths and updates the 
     `comprobacion1` object based on whether the files are identical or not.
-    Parameters:
-    path_cap1 (str): The file path of the first capture.
-    path_cap2 (str): The file path of the second capture.
-    comprobacion1 (object): An object with an attribute `atrexact` that will be 
-                            set to False if the files are identical, and True otherwise.
+
+    Args:
+        path_cap1 (str): The file path of the first capture.
+        path_cap2 (str): The file path of the second capture.
+        comprobacion1 (object): An object with an attribute `atrexact` that will be
+                                set to False if the files are identical, and True otherwise.
+        comprobacion2 (object): An object like comprobacion1
     Returns:
-    None
+        None, updates the comprobacion1 and comprobacion2 objects.
     """
     #CUIDADO CON LOS PATHS
 
@@ -169,11 +182,11 @@ def comprobacionIdentica(path_cap1, path_cap2, comprobacion1, comprobacion2):
         logging.warning('  Path 1: ' + str(path_cap1))
         logging.warning('  Path 2: ' + str(path_cap2))
         comprobacion1.atrexact = False
-        comprobacion1.passed = False
+        comprobacion1.atrComprobacionIndividual = False
         comprobacion1.igual = os.path.basename(path_cap2)
 
         comprobacion2.atrexact = False
-        comprobacion2.passed = False
+        comprobacion2.atrComprobacionIndividual = False
         comprobacion2.igual = os.path.basename(path_cap1)
     else:
         logging.debug("Las capturas no son identicas.")
@@ -183,14 +196,14 @@ def comprobaciondepaquetes(path_cap1, comprobacion):
     cap = pyshark.FileCapture(path_cap1)
     packet_count = sum(1 for _ in cap)
     if packet_count < 2:
-        comprobacion.passed = False
+        comprobacion.atrComprobacionIndividual = False
         logging.warning(f'La captura {path_cap1} NO tiene el numero de paquetes necesario')
     else:
         logging.info(f'La captura {path_cap1} tiene el numero de paquetes necesario')
     cap.close()
 
 
-def MinPacks(cap_path, comprobacion, numMin):
+def min_packs(cap_path, comprobacion, numMin):
     """
     Checks if the cap has a minimun of packets.
     Args:
@@ -216,18 +229,19 @@ def MinPacks(cap_path, comprobacion, numMin):
         return False
     else:
         logging.critical(
-            'Algo ha salido mal, hay un error en el analisis del numero de paquetes de la captura, MinPacks')
+            'Algo ha salido mal, hay un error en el analisis del numero de paquetes de la captura, min_packs')
         cap.close()
 
 
-#FALTAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-def minPacksVlan(cap_path, comprobacion, numMin):
+def min_packs_vlan(cap_path, comprobacion, numMin):
     """
-    Checks if the cap has a minimun of packets with vlan header?????????????????????????? MEJORAR REDACICON BURRO.
+    Checks if the cap has a minimun of packets with vlan id
     Args:
         cap_path (str): The file path to the capture file.
+        comprobacion (object): An object with attributes, 'atrComprobacionIndividual'
+        numMin (int): The minimum number of packets required (default = 4).
     Returns:
-        True if the capture has more than 4 packets, False otherwise.
+        None (changes the comprobacion object).
     """
 
     abspath = os.path.abspath(cap_path)
@@ -239,25 +253,25 @@ def minPacksVlan(cap_path, comprobacion, numMin):
 
     elif numpaquetes < numMin:
         logging.warning('La captura cuenta con unicamente ' + str(numpaquetes) + ' paquetes VLAN')
+        comprobacion.atrComprobacionIndividual = False
 
 
     else:
-        logging.critical(
-            'Algo ha salido mal, hay un error en el analisis del numero de paquetes de la captura, MinPacks')
+        logging.critical('Algo ha salido mal, hay un error en el analisis del numero de paquetes de la captura, min_packs')
 
 
-def MinMacsSrc(cap_patch, comprobacion):
+def min_macs_src(cap_patch, comprobacion):
     print('EnProceso')
 
 
-#FALTA TOQUETEAR EL COMPONENTEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 def comprobacionARP(path_cap1, comprobacion):
     """
     Checks if the ARP protocol is present in the capture file.
     Args:
         path_cap1 (str): The file path to the capture file.
+        comprobacion (object): An object with attributes, 'atrComprobacionIndividual' 
     Returns:
-        True if ARP is present, False otherwise.
+        None (changes the comprobacion object)
     """
 
     abspath = os.path.abspath(path_cap1)
@@ -284,7 +298,7 @@ def comprobacionARP(path_cap1, comprobacion):
         logging.warning('La captura tiene peticiones ARP pero NO tiene respuestas')
         logging.warning('MAL, la captura no es normal')
         #Replantear si existen varias peticiones ARP sin respuesta
-        comprobacion.passed = False
+        comprobacion.atrComprobacionIndividual = False
 
     elif ARPRequest == 0 and ARPResponse > 0:
         logging.debug('La captura tiene respuestas ARP pero NO tiene peticiones')
@@ -298,7 +312,7 @@ def comprobacionICMP(path_cap1, comprobacion):
     Checks if the ICMP is coherent with the VLAN.
     Args:
         path_cap1 (str): The file path to the capture file.
-        comprobacion (object): An object with attributes, 'passed' will chance to True if the test is passed.
+        comprobacion (object): An object with attributes, 'atrComprobacionIndividual' will chance to True if the test is atrComprobacionIndividual.
     """
 
     abspath = os.path.abspath(path_cap1)
@@ -319,20 +333,20 @@ def comprobacionICMP(path_cap1, comprobacion):
     if ip == 0:
         logging.warning('La captura NO tiene peticiones ICMP echo request')
         logging.debug('ICMP Normal, se ha capturado ping ya empezado')
-        comprobacion.passed = False
+        comprobacion.atrComprobacionIndividual = False
 
     elif vlan == 0:
         logging.warning('La captura tiene peticiones ICMP echo request pero NO tiene el header de VLAN')
-        comprobacion.passed = False
+        comprobacion.atrComprobacionIndividual = False
 
     else:
         logging.debug('La captura tiene peticiones ICMP echo request y el header de VLAN')
         if ip != (vlan-3000):
-            comprobacion.passed = False
+            comprobacion.atrComprobacionIndividual = False
             logging.warning('La captura tiene peticiones ICMP echo request pero NO tiene el header de VLAN')
             logging.warning('Especial')
 
-        elif comprobacion.passed:
+        elif comprobacion.atrComprobacionIndividual:
             logging.info('La captura ha pasado todos los tests, ✓')
 
 
@@ -381,7 +395,7 @@ def claseAdiccionarioCopia(comprobacion):
     diccionario = {
         'nombre': comprobacion.name,
         'atrmac': comprobacion.atrmac,
-        'copia': comprobacion.atrcopia,
+        'copia': comprobacion.atrComprobacionIndividual,
         'igual': comprobacion.igual,
         'Comentario': 'La captura ' + str(comprobacion.name) + ' es una copia de ' + str(comprobacion.igual) +
                       ' comparten mac origen y timestamp de las capturas.'
@@ -393,7 +407,7 @@ def claseAdiccionarioCopiaIndividual(comprobacion):
     diccionario = {
         'nombre': comprobacion.name,
         'atrmac': comprobacion.atrmac,
-        'Passed': comprobacion.passed,
+        'Passed': comprobacion.atrComprobacionIndividual,
         'igual': comprobacion.igual,
         'Comentario': 'Esta captura no ha pasado la comprobacion individual.'
     }
