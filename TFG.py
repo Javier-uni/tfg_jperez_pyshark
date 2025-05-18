@@ -103,7 +103,7 @@ class Comprobacion:
     year : str, optional
         The year associated with the capture (default is '2025').
         
-    atrcopia : bool, optional
+    atrComprobacionGlobal : bool, optional
         A boolean attribute indicating if there has been a copy (default is True).
         
     atrexact : bool, optional
@@ -112,15 +112,15 @@ class Comprobacion:
     igual : str, optional
         A string attribute that points the name of the copied capture (default is an empty string).
         
-    passed : bool, optional
-        A boolean attribute indicating if the verification passed (default is True).
+    atrComprobacionIndividual : bool, optional
+        A boolean attribute indicating if the verification atrComprobacionIndividual (default is True).
     
     nota : int, optional
         A numeric attribute (default is 0).
         
     Methods
     -------
-    __init__(self, name, atrmac=True, atrtime=True, year='2025', atrcopia=True, atrexact=True, igual='', passed=True)
+    __init__(self, name, atrmac=True, atrtime=True, year='2025', atrcopia=True, atrexact=True, igual='', atrComprobacionIndividual=True)
         Initializes the Comprobacion class with the provided attributes.
     """
     
@@ -130,10 +130,10 @@ class Comprobacion:
         self.atrmac = atrmac
         self.atrtime = atrtime
         self.year = year
-        self.atrcopia = atrcopia 
+        self.atrComprobacionGlobal = atrcopia
         self.atrexact = atrexact
         self.igual = igual
-        self.passed = passed #Incluye comprobacion unica y a pares
+        self.atrComprobacionIndividual = passed
         self.nota = nota 
         
         
@@ -152,7 +152,7 @@ def dir(directorio):
    
 
 
-        
+#falta la Documentacion aqui... curro
 def recorrerDirectorioFinal(directorio,prueba):
     
     logging.info('El directorio tiene '+str(len(os.listdir(directorio)))+' capturas')
@@ -186,8 +186,9 @@ def recorrerDirectorioFinal(directorio,prueba):
 
     for i in range(len(nombres)):
         for j in range(i+1, len(nombres)):
-            logging.info(f"Comparando {nombres[i]} y {nombres[j]}")
-            lib.comprobacionIdentica(archivos[i], archivos[j], comprobaciones[i],comprobaciones[j])
+            logging.info(f"Comparando {nombres[i]} y {nombres[j]} de manera Identica")
+            #Ultimo recurso old school
+            lib.comprobacion_identica(archivos[i], archivos[j], comprobaciones[i], comprobaciones[j])
             
 
             if (diccionariomacs[nombres[i]] == diccionariomacs[nombres[j]]) and \
@@ -198,7 +199,7 @@ def recorrerDirectorioFinal(directorio,prueba):
                 comprobaciones[i].atrmac = False
                 comprobaciones[j].atrmac = False
                 logging.info(f"{nombres[i]} y {nombres[j]} tienen las mismas MACs: {diccionariomacs[nombres[i]]}")
-                comprobaciontemporal(archivos[i], archivos[j], comprobaciones[i], comprobaciones[j])
+                comparacionTemporal(archivos[i], archivos[j], comprobaciones[i], comprobaciones[j])
 
              
     #COMPROBACION DE PARES
@@ -208,15 +209,14 @@ def recorrerDirectorioFinal(directorio,prueba):
 
 
 
-
-##Analisis de las capturas Individual y llamamiento a pares  
 def comprobacionindividual(path_cap1,comprobacion,prueba):
     """
     Checks if a capture file makes the minimun requirements.
+    In order to check the requirements, the cap will be put under a list of tests (depending on the prueba)
 
     Parameters:
         path_cap1 (str): The file path of the capture to be checked.
-        comprobacion (object): An object with attributes `atrmac`, `atrtime`, `year`, and `atrcopia` that will be updated based on the checks.
+        comprobacion (object): An object with attributes `atrmac`, `atrtime`, `year`, and `atrComprobacionIndividual` that will be updated based on the checks.
         prueba (str): The name of the prueba.
 
     """
@@ -224,10 +224,10 @@ def comprobacionindividual(path_cap1,comprobacion,prueba):
     logging.info('Analizando captura: '+str(path_cap1))
     if prueba == 'practica 2' or prueba == 'Practica 2':
         lib.comprobacionanual(path_cap1,comprobacion)
-        lib.MinPacks(path_cap1,comprobacion, numMin = 4)  #contar en funcion de IMCP
-        #lib.MinMacsSrc(path_cap1,comprobacion)  #Es del Router no del PC (maaaal) (probablemente quitar)
+        lib.min_packs(path_cap1, comprobacion, numMin = 4)  #contar en funcion de IMCP
+        #lib.min_macs_src(path_cap1,comprobacion)  #Es del Router no del PC (maaaal) (probablemente quitar)
         #Comentar con Carlos, ICMP echo req y reply?
-        lib.minPacksVlan(path_cap1, comprobacion, numMin=4) #Change name, varias comprobaciones 1.(802.1.q) Que exista paquete con vlan
+        lib.min_packs_vlan(path_cap1, comprobacion, numMin=4) #Change name, varias comprobaciones 1.(802.1.q) Que exista paquete con vlan
         #2. Correspondencia de Vlan con el fichero json (con 1 correcto)
         #3. COmprobacion complementaria -> Paquete ICMP E Request (mirar IP origen) 10.0.X.Y1 XXXXXXXXXXXXX 
         #RESPUESTA (request respond)
@@ -242,15 +242,24 @@ def comprobacionindividual(path_cap1,comprobacion,prueba):
 
 
         
-    
-    
-    
 
- 
- 
-               
-##Exponer resultados en un json       
 def exponerResultados(comprobaciones):
+    """
+    Creates a JSON file documenting failed or copied network captures.
+
+    Args:
+        comprobaciones (list): A list of Comprobacion objects representing network captures
+        to be analyzed.
+
+    The function examines each Comprobacion object and writes information to resultados.json 
+    for: \n
+    - Exact copies of other captures (atrexact = False)
+    - Captures that failed individual verification (atrComprobacionIndividual = False)
+    - Captures that match MAC addresses or timestamps with others (potential copies)
+    
+    The JSON output includes details about which captures are copies of others and why they
+    failed verification.
+    """
     logging.debug('Exponiendo resultados')
     listado_diccionarios = []
     listado_hechos = []
@@ -264,13 +273,13 @@ def exponerResultados(comprobaciones):
             diccionario = lib.claseAdiccionarioCopiaExacta(comprobacion)
             listado_diccionarios.append(diccionario)
         else:
-            if (not comprobacion.atrcopia) and (comprobacion.name not in listado_hechos):
+            if (not comprobacion.atrComprobacionIndividual) and (comprobacion.name not in listado_hechos):
                 listado_hechos.append(comprobacion.igual)
                 logging.debug(f'La captura {comprobacion.name}  es una copia')
                 diccionario = lib.claseAdiccionarioCopia(comprobacion)
                 listado_diccionarios.append(diccionario)
             else:
-             if (not comprobacion.passed) and (comprobacion.name not in listado_hechos):
+             if (not comprobacion.atrComprobacionIndividual) and (comprobacion.name not in listado_hechos):
                 listado_hechos.append(comprobacion.igual)
                 logging.debug(f'La captura {comprobacion.name}  no ha pasado la comprobacion')
                 diccionario = lib.claseAdiccionarioCopiaIndividual(comprobacion)
@@ -281,42 +290,56 @@ def exponerResultados(comprobaciones):
 
  
  
- 
-##Comprobaciones Específicas      
-#REVISAR SI == O IN ---------------------------------------------------------------------
-def comprobaciontemporal(path_cap1, path_cap2,comprobacion1,comprobacion2):
+#Quizas puedo pasar esta funcion a la biblioteca?
+def comparacionTemporal(path_cap1, path_cap2, comprobacion1, comprobacion2):
+    """
+    Compare timestamps between two network captures to detect potential fraud.
+    
+    This function is triggered when two captures have the same MAC source address.
+    Due to the laws of physics, if both captures also have identical timestamps,
+    they are considered fraudulent since the same device cannot be in two places
+    at once.
+
+    Args:
+        path_cap1 (str): File path to the first capture file
+        path_cap2 (str): File path to the second capture file  
+        comprobacion1 (Comprobacion): Comprobacion object for first capture, updated if fraud detected
+        comprobacion2 (Comprobacion): Comprobacion object for second capture, updated if fraud detected
+
+    The function marks captures as fraudulent by setting atrtime=False and 
+    atrComprobacionIndividual=False in their respective Comprobacion objects if:
+    - They have exactly matching timestamps
+    - They have any packets with matching timestamps
+    """
     time1 = lib.timestamp(path_cap1)
-    time2 = lib.timestamp(path_cap2) 
-    sigue = False      
+    time2 = lib.timestamp(path_cap2)
+    sigue = False
     if time1 == time2:
         logging.warning('Las capturas tienen exactamente los mismos tiempos de captura')
         comprobacion1.atrtime = False
         comprobacion1.igual= os.path.basename(path_cap2)
-        comprobacion1.passed = False
-        
+        comprobacion1.atrComprobacionGlobal = False
+
         comprobacion2.atrtime = False
         comprobacion2.igual= os.path.basename(path_cap1)
-        comprobacion2.passed = False
-        
+        comprobacion2.atrComprobacionGlobal = False
+
     else:
-        for i in range(len(time1[0])): 
+        for i in range(len(time1[0])):
             for j in range(len(time2[0])):
                 if (time1[0][i] == time2[0][j]) and not sigue:
                     if time1[1][i] == time2[1][j]:
                         sigue = True
                         logging.warning('Las capturas tienen los mismos tiempos de captura('+comprobacion1.name+'y'+comprobacion2.name+')')
                         comprobacion1.atrtime = False
-                        comprobacion1.atrcopia = False
-                        comprobacion1.igual= os.path.basename(path_cap2)
-                        comprobacion1.passed = False
-                     
-                     
+                        comprobacion1.atrComprobacionGlobal = False
+                        comprobacion1.igual = os.path.basename(path_cap2)
+
                         comprobacion2.atrtime = False
-                        comprobacion2.atrcopia = False
-                        comprobacion2.igual= os.path.basename(path_cap1)
-                        comprobacion2.passed = False
+                        comprobacion2.atrComprobacionGlobal = False
+                        comprobacion2.igual = os.path.basename(path_cap1)
                         break
-                
+
     
 
 
@@ -377,7 +400,7 @@ En el proceso de verificación, cada captura de red se representa con un objeto 
 
 - igual (str): Apunta al nombre (o path) de la captura de la que es copia o con la que coincide en alguna verificación.
 
-- passed (bool): Indica si la captura supera las validaciones (por ejemplo, año, MAC única, contenido esperado). Si se vuelve False, no pasa la verificación.
+- atrComprobacionIndividual (bool): Indica si la captura supera las validaciones (por ejemplo, año, MAC única, contenido esperado). Si se vuelve False, no pasa la verificación.
 
 - Comentario (str): En el informe JSON/PDF, se incluye un texto explicativo que describe la razón del fallo, la duplicidad, etc.
 """)
