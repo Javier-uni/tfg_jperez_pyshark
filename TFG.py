@@ -152,31 +152,6 @@ def dir(directorio):
    
 
 
-#Recorrer el directorio 
-# recorrerDirectorio y recorrercapturas son =        
-def recorrerDirectorio(directorio):
-    print('El directorio tiene '+str(len(os.listdir(directorio)))+' capturas')
-    for filename in os.listdir(directorio):
-        cap_path = os.path.join(directorio, filename)
-        if os.path.isfile(cap_path):
-            print('Analizando captura: ' + cap_path)
-            comprobacion = Comprobacion(filename)
-            comprobacionindividual(cap_path, comprobacion, 'practica 2')
-            # resultadomacs(cap_path)
-            # vid(cap_path)
-            # timestamp(cap_path)
-            # lib.timestamp(cap_path)
-    
-            
-def recorrerCapturas(directorio):
-    print('El directorio tiene '+str(len(os.listdir(directorio)))+' capturas')
-    archivos = [] 
-    for filename in os.listdir(directorio):
-        archivos.append(str(directorio+'/'+filename))
-    for archivo in archivos:
-        print('Analizando captura: ' + archivo)
-        # lib.resultadomacsrc(archivo)
-      
         
 def recorrerDirectorioFinal(directorio,prueba):
     
@@ -271,19 +246,6 @@ def comprobacionindividual(path_cap1,comprobacion,prueba):
     
     
 
-#OJO DECREPADA       
-def analizar_capturas(path_cap1, path_cap2,comprobacion):      
-    
-    logging.info(f"Analizando {path_cap1} y {path_cap2}")
-    lib.comprobacionIdentica(path_cap1, path_cap2, comprobacion)
-    if  comprobacion.atrexact:
-     mac1 = lib.resultadomacsrc(path_cap1)
-     mac2 = lib.resultadomacsrc(path_cap2)
-     if mac1 == mac2:
-        comprobacion.atrmac = False
-        comprobaciontemporal(path_cap1, path_cap2,comprobacion)
-        
-        
  
  
                
