@@ -16,7 +16,7 @@ import threading
 import asyncio
 
 
-version = 0.8
+version = 0.9
 def Inicio(directorio,practica):
     #Es necesario async para pyshark por lo que antes de Inio debo llamar a async_wrapper
     print("EJecutando el programa")
@@ -192,7 +192,8 @@ def recorrerDirectorioFinal(directorio,prueba):
             
 
             if (diccionariomacs[nombres[i]] == diccionariomacs[nombres[j]]) and \
-               (diccionariomacs[nombres[i]] != 0) and \
+                (diccionariomacs[nombres[i]] != 0) and \
+                (diccionariomacs[nombres[j]] != 0) and \
                (not(comprobaciones[i].atrexact == False) or not(comprobaciones[j].atrexact == False)):
                 # REVISAR SI ES == O IN
                 
@@ -223,16 +224,17 @@ def comprobacionindividual(path_cap1,comprobacion,prueba):
     
     logging.info('Analizando captura: '+str(path_cap1))
     if prueba == 'practica 2' or prueba == 'Practica 2':
-        lib.comprobacionanual(path_cap1,comprobacion)
-        lib.min_packs(path_cap1, comprobacion, numMin = 4)  #contar en funcion de IMCP
+        lib.check_older(path_cap1,comprobacion)
+        lib.num_captured_pckts(path_cap1, comprobacion, numMin = 4)  #contar en funcion de IMCP
         #lib.min_macs_src(path_cap1,comprobacion)  #Es del Router no del PC (maaaal) (probablemente quitar)
         #Comentar con Carlos, ICMP echo req y reply?
-        lib.min_packs_vlan(path_cap1, comprobacion, numMin=4) #Change name, varias comprobaciones 1.(802.1.q) Que exista paquete con vlan
+        lib.num_vlan_captured_pckts(path_cap1, comprobacion, numMin=4) #Change name, varias comprobaciones 1.(802.1.q) Que exista paquete con vlan
         #2. Correspondencia de Vlan con el fichero json (con 1 correcto)
         #3. COmprobacion complementaria -> Paquete ICMP E Request (mirar IP origen) 10.0.X.Y1 XXXXXXXXXXXXX 
         #RESPUESTA (request respond)
-        lib.comprobacionARP(path_cap1,comprobacion) #Comprobacion de ARP FALTARIA RELACIONARLO CON 10.220.X.Y
-        lib.comprobacionICMP(path_cap1,comprobacion)
+        lib.check_arp_request_reply(path_cap1,comprobacion) #Comprobacion de ARP FALTARIA RELACIONARLO CON 10.220.X.Y
+        lib.check_ip_vlan(path_cap1,comprobacion)
+        lib.check_vlan_802_1q(path_cap1,comprobacion) 
     
     elif True:
         logging.critical('FALTAAAAA')
@@ -273,7 +275,7 @@ def exponerResultados(comprobaciones):
             diccionario = lib.claseAdiccionarioCopiaExacta(comprobacion)
             listado_diccionarios.append(diccionario)
         else:
-            if (not comprobacion.atrComprobacionIndividual) and (comprobacion.name not in listado_hechos):
+            if (not comprobacion.atrComprobacionGlobal) and (comprobacion.name not in listado_hechos):
                 listado_hechos.append(comprobacion.igual)
                 logging.debug(f'La captura {comprobacion.name}  es una copia')
                 diccionario = lib.claseAdiccionarioCopia(comprobacion)
@@ -366,17 +368,27 @@ def json_to_pdf(practica,json_path='resultados.json'):
         pdf.set_font("Arial", size=12)
 
         for i, item in enumerate(data, 1):
+              # Check if 'igual' is empty
             if isinstance(item, dict):  # Ensure item is a dictionary
-                pdf.set_font("Arial", style='B', size=14)  # Cambia la fuente a Arial, negrita, tamaño 14
-                pdf.cell(0, 10, f"Copia Detectada: {i}", ln=True)
+                if item.get('igual') != '':
+                    pdf.set_font("Arial", style='B', size=14)  # Cambia la fuente a Arial, negrita, tamaño 14
+                    pdf.cell(0, 10, f"Copia Detectada: {i}", ln=True)
 
-                pdf.set_font("Arial", style='', size=12)  # Cambia la fuente a Arial, normal, tamaño 12
-                pdf.cell(0, 10, f"Captura1: {item.get('nombre', '')}", ln=True)
-                pdf.cell(0, 10, f"Captura2: {item.get('igual', '')}", ln=True)
-                pdf.cell(0, 10, f"AtrMAC: {item.get('atrmac', '')}", ln=True)
-                pdf.cell(0, 10, f"Copia: {item.get('copia', '')}", ln=True)
-                pdf.multi_cell(0, 10, f"Comentario: {item.get('Comentario', '')}")
-                pdf.ln(7)  # espacio entre capturas
+                    pdf.set_font("Arial", style='', size=12)  # Cambia la fuente a Arial, normal, tamaño 12
+                    pdf.cell(0, 10, f"Captura1: {item.get('nombre', '')}", ln=True)
+                    pdf.cell(0, 10, f"Captura2: {item.get('igual', '')}", ln=True)
+                    pdf.cell(0, 10, f"AtrMAC: {item.get('atrmac', '')}", ln=True)
+                    pdf.cell(0, 10, f"Copia: {item.get('copia', '')}", ln=True)
+                    pdf.multi_cell(0, 10, f"Comentario: {item.get('Comentario', '')}")
+                    pdf.ln(7)  # espacio entre capturas
+                else:
+                    pdf.set_font("Arial", style='B', size=14)  # Cambia la fuente a Arial, negrita, tamaño 14
+                    pdf.cell(0, 10, f"Captura Incorrecta Detectada: {i}", ln=True)
+                    pdf.set_font("Arial", style='', size=12)  # Cambia la fuente a Arial, normal, tamaño 12
+                    pdf.cell(0, 10, f"Captura1: {item.get('nombre', '')}", ln=True)
+                    pdf.multi_cell(0, 10, f"Comentario: {item.get('Comentario', '')}")
+                    pdf.ln(7)  # espacio entre capturas
+                    
             else:
                 logging.warning(f"Unexpected data format: {item}")
         

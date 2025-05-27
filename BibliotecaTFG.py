@@ -2,6 +2,8 @@ import pyshark
 import logging
 import os
 import filecmp
+import json
+
 
 
 
@@ -138,7 +140,7 @@ def timestamp(cap_path):
 # ──────────────────────────────── #
 #  region FUNCIONES DE COMPROBACION  #
 # ──────────────────────────────── #
-def comprobacionanual(path_cap1, comprobacion):
+def check_older(path_cap1, comprobacion):
     """
     Checks if the year in a Wireshark capture file matches the current year.
 
@@ -203,7 +205,7 @@ def comprobaciondepaquetes(path_cap1, comprobacion):
     cap.close()
 
 
-def min_packs(cap_path, comprobacion, numMin):
+def num_captured_pckts(path_cap, comprobacion, numMin):
     """
     Checks if the cap has a minimun of packets.
     Args:
@@ -212,7 +214,7 @@ def min_packs(cap_path, comprobacion, numMin):
         True if the capture has more than 4 packets, False otherwise.
     """
 
-    abspath = os.path.abspath(cap_path)
+    abspath = os.path.abspath(path_cap)
     cap = pyshark.FileCapture(abspath)
     numpaquetes = sum(1 for _ in cap)
     if numpaquetes >= numMin:
@@ -233,7 +235,7 @@ def min_packs(cap_path, comprobacion, numMin):
         cap.close()
 
 
-def min_packs_vlan(cap_path, comprobacion, numMin):
+def num_vlan_captured_pckts(path_cap, comprobacion, numMin):
     """
     Checks if the cap has a minimun of packets with vlan id
     Args:
@@ -244,7 +246,7 @@ def min_packs_vlan(cap_path, comprobacion, numMin):
         None (changes the comprobacion object).
     """
 
-    abspath = os.path.abspath(cap_path)
+    abspath = os.path.abspath(path_cap)
     cap = pyshark.FileCapture(abspath, display_filter='vlan')
     numpaquetes = sum(1 for _ in cap)
     cap.close()
@@ -260,11 +262,11 @@ def min_packs_vlan(cap_path, comprobacion, numMin):
         logging.critical('Algo ha salido mal, hay un error en el analisis del numero de paquetes de la captura, min_packs')
 
 
-def min_macs_src(cap_patch, comprobacion):
+def min_macs_src(path_cap, comprobacion):
     print('EnProceso')
 
 
-def comprobacionARP(path_cap1, comprobacion):
+def check_arp_request_reply(path_cap1, comprobacion):
     """
     Checks if the ARP protocol is present in the capture file.
     Args:
@@ -307,7 +309,7 @@ def comprobacionARP(path_cap1, comprobacion):
         logging.critical('Algo ha salido mal, hay un error en el analisis de la captura, comprobacionARP')
 
 
-def comprobacionICMP(path_cap1, comprobacion):
+def check_ip_vlan(path_cap1, comprobacion):
     """
     Checks if the ICMP is coherent with the VLAN.
     Args:
@@ -368,6 +370,41 @@ def get_ip_id(ip_address):
         return int([octets[2]])
 
 
+
+def check_vlan_802_1q(path_cap, comprobacion):
+    
+    abspath = os.path.abspath(path_cap)
+    expected_vlan = 3000 
+    vlan = 0
+    cap = pyshark.FileCapture(abspath, display_filter='icmp.type == 8')
+    for pkt in cap:
+        if hasattr(pkt, 'icmp'):
+            if pkt.icmp.type == '8':
+                logging.debug('La captura tiene peticiones ICMP echo request')
+                logging.debug('ICMP Normal')
+                if hasattr(pkt, 'vlan'):
+                    vlan = pkt.vlan.id
+                break
+    cap.close()
+
+    if vlan == 0:
+        logging.warning('La captura tiene peticiones ICMP echo request pero NO tiene el header de VLAN')
+        comprobacion.atrComprobacionIndividual = False
+
+ 
+
+
+    else:
+        logging.debug('La captura tiene peticiones ICMP echo request y el header de VLAN')
+        if expected_vlan != vlan:
+            comprobacion.atrComprobacionIndividual = False
+            logging.warning('La captura tiene peticiones ICMP echo request pero NO tiene el header de VLAN')
+            logging.warning('Especial')
+
+        elif comprobacion.atrComprobacionIndividual:
+            logging.info('La captura ha pasado todos los tests, ✓')
+    
+    
 # endregion
 
 
