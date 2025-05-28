@@ -3,9 +3,7 @@ import logging
 import os
 import filecmp
 import json
-
-
-
+import re
 
 
 
@@ -326,7 +324,7 @@ def check_ip_vlan(path_cap1, comprobacion):
             if pkt.icmp.type == '8':
                 logging.debug('La captura tiene peticiones ICMP echo request')
                 logging.debug('ICMP Normal')
-                ip = pkt.ip.dst
+                ip = get_ip_id(pkt.ip.dst)
                 if hasattr(pkt, 'vlan'):
                     vlan = pkt.vlan.id
                 break
@@ -367,14 +365,23 @@ def get_ip_id(ip_address):
 
     else:
         logging.warning('El formato IP no es correcto')
-        return int([octets[2]])
+        return int(octets[2])
 
 
 
 def check_vlan_802_1q(path_cap, comprobacion):
-    
+    numbers = re.findall(r'\d+', path_cap)
+    logging.debug(f'Numbers extracted from path: {numbers}')
+
+    # Load puestos.json file
+    with open('puestos.json') as f:
+        puestos = json.load(f)
+
+    puesto = "puesto_"+str(numbers)
+    #capt = os.path.basename(path_cap)
     abspath = os.path.abspath(path_cap)
-    expected_vlan = 3000 
+    #expected_vlan = puestos[capt]["vlan"]
+    expected_vlan = puestos[puesto]["vlan"]
     vlan = 0
     cap = pyshark.FileCapture(abspath, display_filter='icmp.type == 8')
     for pkt in cap:
