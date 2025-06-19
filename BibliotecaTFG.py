@@ -307,16 +307,29 @@ def check_arp_request_reply(path_cap1, comprobacion):
         logging.critical('Algo ha salido mal, hay un error en el analisis de la captura, comprobacionARP')
 
 
-def check_ip_vlan(path_cap1, comprobacion):
+def check_ip_vlan(path_cap, comprobacion):
     """
+
     Checks if the ICMP is coherent with the VLAN.
     Args:
-        path_cap1 (str): The file path to the capture file.
+        path_cap (str): The file path to the capture file.
         comprobacion (object): An object with attributes, 'atrComprobacionIndividual' will chance to True if the test is atrComprobacionIndividual.
     """
 
-    abspath = os.path.abspath(path_cap1)
-    ip = 0
+    numbers = re.findall(r'\d+', path_cap)
+    logging.debug(f'Numbers extracted from path: {numbers}')
+
+    # Load puestos.json file
+    with open('puestos.json') as f:
+        puestos = json.load(f)
+
+    # Se puede modificar el json (puesto_3) o (57)
+    puesto = "puesto_" + str(numbers)
+    # capt = os.path.basename(path_cap)
+    abspath = os.path.abspath(path_cap)
+    # expected_vlan = puestos[capt]["vlan"]
+    expected_vlan = puestos[puesto]["vlan"]
+
     vlan = 0
     cap = pyshark.FileCapture(abspath, display_filter='icmp.type == 8')
     for pkt in cap:
@@ -324,24 +337,21 @@ def check_ip_vlan(path_cap1, comprobacion):
             if pkt.icmp.type == '8':
                 logging.debug('La captura tiene peticiones ICMP echo request')
                 logging.debug('ICMP Normal')
-                ip = get_ip_id(pkt.ip.dst)
                 if hasattr(pkt, 'vlan'):
                     vlan = pkt.vlan.id
                 break
     cap.close()
 
-    if ip == 0:
-        logging.warning('La captura NO tiene peticiones ICMP echo request')
-        logging.debug('ICMP Normal, se ha capturado ping ya empezado')
-        comprobacion.atrComprobacionIndividual = False
-
-    elif vlan == 0:
+    if vlan == 0:
         logging.warning('La captura tiene peticiones ICMP echo request pero NO tiene el header de VLAN')
         comprobacion.atrComprobacionIndividual = False
 
+
+
+
     else:
         logging.debug('La captura tiene peticiones ICMP echo request y el header de VLAN')
-        if ip != (vlan-3000):
+        if expected_vlan != vlan:
             comprobacion.atrComprobacionIndividual = False
             logging.warning('La captura tiene peticiones ICMP echo request pero NO tiene el header de VLAN')
             logging.warning('Especial')
@@ -370,6 +380,21 @@ def get_ip_id(ip_address):
 
 
 def check_vlan_802_1q(path_cap, comprobacion):
+    """
+    8021Q cojo mensaje buscando cabecera8021q buscando vlanid para comprobar con puesto
+
+
+    RENOMBRAR A CHECK IP VLAN
+    Checks if a network capture file contains VLAN headers that match the expected VLAN
+    assignments derived from a predefined JSON file. The validation result is stored in a given
+    `comprobacion` object.
+    Args:
+        path_cap (str): Path to the capture file to be analyzed.
+
+        comprobacion (object): An object used to record the result of the VLAN check.
+
+    """
+
     numbers = re.findall(r'\d+', path_cap)
     logging.debug(f'Numbers extracted from path: {numbers}')
 
@@ -377,41 +402,44 @@ def check_vlan_802_1q(path_cap, comprobacion):
     with open('puestos.json') as f:
         puestos = json.load(f)
 
-    puesto = "puesto_"+str(numbers)
-    #capt = os.path.basename(path_cap)
-    abspath = os.path.abspath(path_cap)
-    #expected_vlan = puestos[capt]["vlan"]
+    puesto = "puesto_" + str(numbers)
+    # capt = os.path.basename(path_cap)
+    # expected_vlan = puestos[capt]["vlan"]
     expected_vlan = puestos[puesto]["vlan"]
-    vlan = 0
+
+    abspath = os.path.abspath(path_cap)
+    ip = 0
+
     cap = pyshark.FileCapture(abspath, display_filter='icmp.type == 8')
     for pkt in cap:
         if hasattr(pkt, 'icmp'):
             if pkt.icmp.type == '8':
                 logging.debug('La captura tiene peticiones ICMP echo request')
                 logging.debug('ICMP Normal')
-                if hasattr(pkt, 'vlan'):
-                    vlan = pkt.vlan.id
+                ip = get_ip_id(pkt.ip.dst)
                 break
     cap.close()
 
-    if vlan == 0:
+    if ip == 0:
+        logging.warning('La captura NO tiene peticiones ICMP echo request')
+        logging.debug('ICMP Normal, se ha capturado ping ya empezado')
+        comprobacion.atrComprobacionIndividual = False
+
+    elif expected_vlan == 0:
         logging.warning('La captura tiene peticiones ICMP echo request pero NO tiene el header de VLAN')
         comprobacion.atrComprobacionIndividual = False
 
- 
-
-
     else:
         logging.debug('La captura tiene peticiones ICMP echo request y el header de VLAN')
-        if expected_vlan != vlan:
+        if ip != (expected_vlan-3000):
             comprobacion.atrComprobacionIndividual = False
             logging.warning('La captura tiene peticiones ICMP echo request pero NO tiene el header de VLAN')
             logging.warning('Especial')
 
         elif comprobacion.atrComprobacionIndividual:
             logging.info('La captura ha pasado todos los tests, ✓')
-    
-    
+
+
 # endregion
 
 
