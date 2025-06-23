@@ -16,6 +16,8 @@ resultados/
 resultados*.pdf
 resultados*.json
 puestos.json
+puestos.csv
+
 
 
 # Ignore all Python files except specific ones

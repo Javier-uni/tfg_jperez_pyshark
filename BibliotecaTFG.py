@@ -4,6 +4,8 @@ import os
 import filecmp
 import json
 import re
+import json
+import csv
 
 
 
@@ -130,6 +132,124 @@ def timestamp(cap_path):
     cap.close()
     return time
 
+def comparacionTemporal(path_cap1, path_cap2, comprobacion1, comprobacion2):
+    """
+    Compare timestamps between two network captures to detect potential fraud.
+    
+    This function is triggered when two captures have the same MAC source address.
+    Due to the laws of physics, if both captures also have identical timestamps,
+    they are considered fraudulent since the same device cannot be in two places
+    at once.
+
+    Args:
+        path_cap1 (str): File path to the first capture file
+        path_cap2 (str): File path to the second capture file  
+        comprobacion1 (Comprobacion): Comprobacion object for first capture, updated if fraud detected
+        comprobacion2 (Comprobacion): Comprobacion object for second capture, updated if fraud detected
+
+    The function marks captures as fraudulent by setting atrtime=False and 
+    atrComprobacionIndividual=False in their respective Comprobacion objects if:
+    - They have exactly matching timestamps
+    - They have any packets with matching timestamps
+    """
+    time1 = timestamp(path_cap1)
+    time2 = timestamp(path_cap2)
+    sigue = False
+    if time1 == time2:
+        logging.warning('Las capturas tienen exactamente los mismos tiempos de captura')
+        comprobacion1.atrtime = False
+        comprobacion1.igual= os.path.basename(path_cap2)
+        comprobacion1.atrComprobacionGlobal = False
+
+        comprobacion2.atrtime = False
+        comprobacion2.igual= os.path.basename(path_cap1)
+        comprobacion2.atrComprobacionGlobal = False
+
+    else:
+        for i in range(len(time1[0])):
+            for j in range(len(time2[0])):
+                if (time1[0][i] == time2[0][j]) and not sigue:
+                    if time1[1][i] == time2[1][j]:
+                        sigue = True
+                        logging.warning('Las capturas tienen los mismos tiempos de captura('+comprobacion1.name+'y'+comprobacion2.name+')')
+                        comprobacion1.atrtime = False
+                        comprobacion1.atrComprobacionGlobal = False
+                        comprobacion1.igual = os.path.basename(path_cap2)
+
+                        comprobacion2.atrtime = False
+                        comprobacion2.atrComprobacionGlobal = False
+                        comprobacion2.igual = os.path.basename(path_cap1)
+                        break
+
+
+def dict_csv(path_cap):
+    """
+    Extracts the puesto identifier from the given path, reads the 'puestos.csv' file,
+    and returns a dictionary mapping puesto numbers to their expected VLAN values.
+    The function expects the 'puestos.csv' file to be in the current working directory,
+    with at least four columns per row. It skips the header and any empty lines, and
+    cleans each field by stripping spaces and quotes. The puesto identifier is extracted
+    from the first sequence of digits found in the 'path_cap' string.
+    Args:
+        path_cap (str): The file path containing the puesto identifier (e.g., 'g12_aptd3.pcap').
+    Returns:
+        dict: A dictionary where each key is a puesto number (as a string) and each value
+              is the corresponding expected VLAN (as an integer), i.e.,
+              puestos_dict[puesto_num] = expected_vlan.
+    Raises:
+        Logs errors if the puesto identifier is not found in the CSV or if the VLAN value
+        is invalid. Returns False in these error cases.
+    """
+    
+    
+    numbers = re.findall(r'\d+', path_cap)
+    logging.debug(f'Numbers extracted from path: {numbers}')
+   # Tomar el primer número como identificador del puesto
+   # Formato esperado: gXY_aptdZ.pcap
+    puesto_id = numbers[0]  # Mantener como string
+
+    # Cargar y procesar puestos.csv
+    puestos_dict = {}
+    with open('puestos.csv', 'r', newline='', encoding='utf-8') as csvfile:
+        # Leer archivo CSV ignorando espacios y caracteres especiales
+        reader = csv.reader(csvfile, skipinitialspace=True)
+        
+        # Saltar encabezados (primera línea)
+        next(reader)
+        
+        for row in reader:
+            # Filtrar filas vacías en caso de que haya líneas en blanco
+            if not row:
+                continue
+                
+            # Limpiar cada campo: quitar comillas y espacios
+            cleaned_row = [field.strip().strip('"') for field in row if field.strip()]
+            
+            # Verificar que tenga suficientes columnas
+            if len(cleaned_row) >= 4:
+                puesto_num = cleaned_row[0]
+                vlan_value = cleaned_row[3]
+                
+                # Almacenar en diccionario
+                puestos_dict[puesto_num] = vlan_value
+
+    # Buscar la VLAN correspondiente
+    if puesto_id not in puestos_dict:
+        logging.error(f"Puesto {puesto_id} no encontrado en puestos.csv")
+        return False
+
+    expected_vlan = puestos_dict[puesto_id]
+    
+    try:
+        # Convertir VLAN a entero si es necesario
+        expected_vlan = int(expected_vlan)
+    except ValueError:
+        logging.error(f"Valor de VLAN inválido para puesto {puesto_id}: {expected_vlan}")
+        return False
+    
+    return puestos_dict
+
+
 # endregion
 
 
@@ -192,14 +312,24 @@ def comprobacion_identica(path_cap1, path_cap2, comprobacion1, comprobacion2):
         logging.debug("Las capturas no son identicas.")
 
 
-def comprobaciondepaquetes(path_cap1, comprobacion):
-    cap = pyshark.FileCapture(path_cap1)
+def comprobaciondepaquetes(cap_path, comprobacion):
+    """
+    Checks if the capture file has a minimum number of packets.
+
+    Args:
+        cap_path (str): The file path of the capture
+        comprobacion (object): An object with an attribute `atrComprobacionIndividual` that will be
+                                set to False if the files are identical, and True otherwise.
+    Returns:
+        None, updates the comprobacion object.
+    """
+    cap = pyshark.FileCapture(cap_path)
     packet_count = sum(1 for _ in cap)
     if packet_count < 2:
         comprobacion.atrComprobacionIndividual = False
-        logging.warning(f'La captura {path_cap1} NO tiene el numero de paquetes necesario')
+        logging.warning(f'La captura {cap_path} NO tiene el numero de paquetes necesario')
     else:
-        logging.info(f'La captura {path_cap1} tiene el numero de paquetes necesario')
+        logging.info(f'La captura {cap_path} tiene el numero de paquetes necesario')
     cap.close()
 
 
@@ -260,8 +390,26 @@ def num_vlan_captured_pckts(path_cap, comprobacion, numMin):
         logging.critical('Algo ha salido mal, hay un error en el analisis del numero de paquetes de la captura, min_packs')
 
 
-def min_macs_src(path_cap, comprobacion):
-    print('EnProceso')
+def min_icmp_captured_pckts(path_cap, comprobacion,numMin=4):
+    """
+    Checks if the capture has a minimum number of ICMP packets.
+    Args:
+        path_cap (str): The file path to the capture file.
+        comprobacion (object): An object with attributes, 'atrComprobacionIndividual'
+    Returns:
+        None (changes the comprobacion object).
+    """
+    abspath = os.path.abspath(path_cap)
+    cap = pyshark.FileCapture(abspath, display_filter='icmp.type == 8')#REVISAR SI SE PUEDE HACER CON ICMP
+    numpaquetes = sum(1 for _ in cap)
+    cap.close()
+    if numpaquetes >= numMin:
+        logging.debug('La captura cuenta con un minimo de ' + str(numMin) + ' paquetes ping, correspondiente con el ping -c ' + str(numMin))
+    elif numpaquetes < numMin:
+        logging.warning('La captura cuenta con unicamente ' + str(numpaquetes) + ' paquetes ICMP')
+        comprobacion.atrComprobacionIndividual = False
+    else:
+        logging.critical('Algo ha salido mal, hay un error en el analisis del numero de paquetes de la captura, min_packs')
 
 
 def check_arp_request_reply(path_cap1, comprobacion):
@@ -309,8 +457,8 @@ def check_arp_request_reply(path_cap1, comprobacion):
 
 def check_ip_vlan(path_cap, comprobacion):
     """
-
-    Checks if the ICMP is coherent with the VLAN.
+    Checks if the IP is coherent with the expected VLAN.
+    Important: This uses the puestos.json file to check the expected VLAN for the given capture.
     Args:
         path_cap (str): The file path to the capture file.
         comprobacion (object): An object with attributes, 'atrComprobacionIndividual' will chance to True if the test is atrComprobacionIndividual.
@@ -318,18 +466,53 @@ def check_ip_vlan(path_cap, comprobacion):
 
     numbers = re.findall(r'\d+', path_cap)
     logging.debug(f'Numbers extracted from path: {numbers}')
+   # Tomar el primer número como identificador del puesto
+   # Formato esperado: gXY_aptdZ.pcap
+    puesto_id = numbers[0]  # Mantener como string
 
-    # Load puestos.json file
-    with open('puestos.json') as f:
-        puestos = json.load(f)
+    # Cargar y procesar puestos.csv
+    puestos_dict = {}
+    with open('puestos.csv', 'r', newline='', encoding='utf-8') as csvfile:
+        # Leer archivo CSV ignorando espacios y caracteres especiales
+        reader = csv.reader(csvfile, skipinitialspace=True)
+        
+        # Saltar encabezados (primera línea)
+        next(reader)
+        
+        for row in reader:
+            # Filtrar filas vacías en caso de que haya líneas en blanco
+            if not row:
+                continue
+                
+            # Limpiar cada campo: quitar comillas y espacios
+            cleaned_row = [field.strip().strip('"') for field in row if field.strip()]
+            
+            # Verificar que tenga suficientes columnas
+            if len(cleaned_row) >= 4:
+                puesto_num = cleaned_row[0]
+                vlan_value = cleaned_row[3]
+                
+                # Almacenar en diccionario
+                puestos_dict[puesto_num] = vlan_value
 
-    # Se puede modificar el json (puesto_3) o (57)
-    puesto = "puesto_" + str(numbers)
-    # capt = os.path.basename(path_cap)
+    # Buscar la VLAN correspondiente
+    if puesto_id not in puestos_dict:
+        logging.error(f"Puesto {puesto_id} no encontrado en puestos.csv")
+        return False
+
+    expected_vlan = puestos_dict[puesto_id]
+    
+    try:
+        # Convertir VLAN a entero si es necesario
+        expected_vlan = int(expected_vlan)
+    except ValueError:
+        logging.error(f"Valor de VLAN inválido para puesto {puesto_id}: {expected_vlan}")
+        return False
+
+    logging.debug(f'Expected VLAN for puesto {puesto_id}: {expected_vlan}')
+
+
     abspath = os.path.abspath(path_cap)
-    # expected_vlan = puestos[capt]["vlan"]
-    expected_vlan = puestos[puesto]["vlan"]
-
     vlan = 0
     cap = pyshark.FileCapture(abspath, display_filter='icmp.type == 8')
     for pkt in cap:
@@ -382,12 +565,8 @@ def get_ip_id(ip_address):
 def check_vlan_802_1q(path_cap, comprobacion):
     """
     8021Q cojo mensaje buscando cabecera8021q buscando vlanid para comprobar con puesto
-
-
-    RENOMBRAR A CHECK IP VLAN
-    Checks if a network capture file contains VLAN headers that match the expected VLAN
-    assignments derived from a predefined JSON file. The validation result is stored in a given
-    `comprobacion` object.
+    Checks if the ICMP is coherent with the expected VLAN.
+    Important: This uses the puestos.json file to check the expected VLAN for the given capture.
     Args:
         path_cap (str): Path to the capture file to be analyzed.
 
@@ -397,19 +576,56 @@ def check_vlan_802_1q(path_cap, comprobacion):
 
     numbers = re.findall(r'\d+', path_cap)
     logging.debug(f'Numbers extracted from path: {numbers}')
+    if not numbers:
+        logging.error('No se han encontrado números en el nombre del fichero de captura')
+        logging.error('Posiblemente el nombre del fichero no tiene un formato correcto')
 
-    # Load puestos.json file
-    with open('puestos.json') as f:
-        puestos = json.load(f)
+   # Tomar el primer número como identificador del puesto
+   # Formato esperado: gXY_aptdZ.pcap
+    puesto_id = numbers[0]  # Mantener como string
 
-    puesto = "puesto_" + str(numbers)
-    # capt = os.path.basename(path_cap)
-    # expected_vlan = puestos[capt]["vlan"]
-    expected_vlan = puestos[puesto]["vlan"]
+    # Cargar y procesar puestos.csv
+    puestos_dict = {}
+    with open('puestos.csv', 'r', newline='', encoding='utf-8') as csvfile:
+        # Leer archivo CSV ignorando espacios y caracteres especiales
+        reader = csv.reader(csvfile, skipinitialspace=True)
+        
+        # Saltar encabezados (primera línea)
+        next(reader)
+        
+        for row in reader:
+            # Filtrar filas vacías en caso de que haya líneas en blanco
+            if not row:
+                continue
+                
+            # Limpiar cada campo: quitar comillas y espacios
+            cleaned_row = [field.strip().strip('"') for field in row if field.strip()]
+            
+            # Verificar que tenga suficientes columnas
+            if len(cleaned_row) >= 4:
+                puesto_num = cleaned_row[0]
+                vlan_value = cleaned_row[3]
+                
+                # Almacenar en diccionario
+                puestos_dict[puesto_num] = vlan_value
+
+    # Buscar la VLAN correspondiente
+    if puesto_id not in puestos_dict:
+        logging.error(f"Puesto {puesto_id} no encontrado en puestos.csv")
+        return False
+
+    expected_vlan = puestos_dict[puesto_id]
+    
+    try:
+        # Convertir VLAN a entero si es necesario
+        expected_vlan = int(expected_vlan)
+    except ValueError:
+        logging.error(f"Valor de VLAN inválido para puesto {puesto_id}: {expected_vlan}")
+        return False
+
 
     abspath = os.path.abspath(path_cap)
     ip = 0
-
     cap = pyshark.FileCapture(abspath, display_filter='icmp.type == 8')
     for pkt in cap:
         if hasattr(pkt, 'icmp'):
@@ -447,7 +663,7 @@ def check_vlan_802_1q(path_cap, comprobacion):
 
 
 # ──────────────────────────────── #
-#  region FUNCIONES JSON  #
+#  region FUNCIONES DE INFORME  #
 # ──────────────────────────────── #
 
 

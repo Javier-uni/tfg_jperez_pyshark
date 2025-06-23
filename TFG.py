@@ -16,7 +16,7 @@ import threading
 import asyncio
 
 
-version = 0.9
+version = 0.99
 def Inicio(directorio,practica):
     #Es necesario async para pyshark por lo que antes de Inio debo llamar a async_wrapper
     print("EJecutando el programa")
@@ -200,7 +200,7 @@ def recorrerDirectorioFinal(directorio,prueba):
                 comprobaciones[i].atrmac = False
                 comprobaciones[j].atrmac = False
                 logging.info(f"{nombres[i]} y {nombres[j]} tienen las mismas MACs: {diccionariomacs[nombres[i]]}")
-                comparacionTemporal(archivos[i], archivos[j], comprobaciones[i], comprobaciones[j])
+                lib.comparacionTemporal(archivos[i], archivos[j], comprobaciones[i], comprobaciones[j])
 
              
     #COMPROBACION DE PARES
@@ -291,56 +291,8 @@ def exponerResultados(comprobaciones):
              
 
  
- 
-#Quizas puedo pasar esta funcion a la biblioteca?
-def comparacionTemporal(path_cap1, path_cap2, comprobacion1, comprobacion2):
-    """
-    Compare timestamps between two network captures to detect potential fraud.
-    
-    This function is triggered when two captures have the same MAC source address.
-    Due to the laws of physics, if both captures also have identical timestamps,
-    they are considered fraudulent since the same device cannot be in two places
-    at once.
 
-    Args:
-        path_cap1 (str): File path to the first capture file
-        path_cap2 (str): File path to the second capture file  
-        comprobacion1 (Comprobacion): Comprobacion object for first capture, updated if fraud detected
-        comprobacion2 (Comprobacion): Comprobacion object for second capture, updated if fraud detected
 
-    The function marks captures as fraudulent by setting atrtime=False and 
-    atrComprobacionIndividual=False in their respective Comprobacion objects if:
-    - They have exactly matching timestamps
-    - They have any packets with matching timestamps
-    """
-    time1 = lib.timestamp(path_cap1)
-    time2 = lib.timestamp(path_cap2)
-    sigue = False
-    if time1 == time2:
-        logging.warning('Las capturas tienen exactamente los mismos tiempos de captura')
-        comprobacion1.atrtime = False
-        comprobacion1.igual= os.path.basename(path_cap2)
-        comprobacion1.atrComprobacionGlobal = False
-
-        comprobacion2.atrtime = False
-        comprobacion2.igual= os.path.basename(path_cap1)
-        comprobacion2.atrComprobacionGlobal = False
-
-    else:
-        for i in range(len(time1[0])):
-            for j in range(len(time2[0])):
-                if (time1[0][i] == time2[0][j]) and not sigue:
-                    if time1[1][i] == time2[1][j]:
-                        sigue = True
-                        logging.warning('Las capturas tienen los mismos tiempos de captura('+comprobacion1.name+'y'+comprobacion2.name+')')
-                        comprobacion1.atrtime = False
-                        comprobacion1.atrComprobacionGlobal = False
-                        comprobacion1.igual = os.path.basename(path_cap2)
-
-                        comprobacion2.atrtime = False
-                        comprobacion2.atrComprobacionGlobal = False
-                        comprobacion2.igual = os.path.basename(path_cap1)
-                        break
 
     
 
