@@ -1,5 +1,3 @@
-pyshark
-fpdf
-logging
-filecmp
-json
+fpdf==1.7.2
+pyshark==0.6
+

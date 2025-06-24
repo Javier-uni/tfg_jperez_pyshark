@@ -173,7 +173,7 @@ def recorrerDirectorioFinal(directorio,prueba):
     logging.info('Comprobacion individual')
     diccionariomacs = {}
     for i in range(len(archivos)):
-        comprobacionindividual(archivos[i],comprobaciones[i],prueba)
+        comprobacionindividual(archivos[i],comprobaciones[i],prueba)#--------------------------------------------
 
         #Extraccion de MACs y paso a diccionario
         nombre = comprobaciones[i].name
@@ -235,7 +235,10 @@ def comprobacionindividual(path_cap1,comprobacion,prueba):
         lib.check_arp_request_reply(path_cap1,comprobacion) #Comprobacion de ARP FALTARIA RELACIONARLO CON 10.220.X.Y
         lib.check_ip_vlan(path_cap1,comprobacion)
         lib.check_vlan_802_1q(path_cap1,comprobacion) 
-    
+    elif prueba == "informe":
+        logging.info('Comprobacion individual de informe')
+        lib.check_older(path_cap1,comprobacion)
+        logging.info('La captura '+str(path_cap1)+' ha pasado la comprobacion individual')
     elif True:
         logging.critical('FALTAAAAA')
         logging.critical('De momento solo funciona la Practica 2')

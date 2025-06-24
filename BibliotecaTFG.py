@@ -12,25 +12,25 @@ import csv
 # ──────────────────────────────── #
 #  region FUNCIONES DE EXTRACCION  #
 # ──────────────────────────────── #
-def resultadomacs(cap_path):
-    """
-    Extracts and returns a list of unique source MAC addresses from a Wireshark capture file.
-    Args:
-        cap_path (str): The file path to the Wireshark capture file.
-    Returns:
-        list: A list of unique source MAC addresses found in the capture file.
-    """
+    # def resultadomacs(cap_path):
+#     """
+#     Extracts and returns a list of unique source MAC addresses from a Wireshark capture file.
+#     Args:
+#         cap_path (str): The file path to the Wireshark capture file.
+#     Returns:
+#         list: A list of unique source MAC addresses found in the capture file.
+#     """
 
-    macs = []
-    abspath = os.path.abspath(cap_path)
-    cap = pyshark.FileCapture(abspath)
-    for pkt in cap:
-        if hasattr(pkt, 'eth'):
-            if pkt.eth.src not in macs:
-                macs.append(pkt.eth.src)
-    logging.debug(macs)
-    cap.close()
-    return macs
+#     macs = []
+#     abspath = os.path.abspath(cap_path)
+#     cap = pyshark.FileCapture(abspath)
+#     for pkt in cap:
+#         if hasattr(pkt, 'eth'):
+#             if pkt.eth.src not in macs:
+#                 macs.append(pkt.eth.src)
+#     logging.debug(macs)
+#     cap.close()
+#     return macs
 
 
 def resultadomacsrc(cap_path):
@@ -414,7 +414,7 @@ def min_icmp_captured_pckts(path_cap, comprobacion,numMin=4):
 
 def check_arp_request_reply(path_cap1, comprobacion):
     """
-    Checks if the ARP protocol is present in the capture file.
+    Checks the ARP requests and responses in the capture file
     Args:
         path_cap1 (str): The file path to the capture file.
         comprobacion (object): An object with attributes, 'atrComprobacionIndividual' 
@@ -668,6 +668,21 @@ def check_vlan_802_1q(path_cap, comprobacion):
 
 
 def claseAdiccionarioCopiaExacta(comprobacion):
+    """
+    Converts a comprobacion object representing an exact copy case into a dictionary.
+    This function extracts relevant attributes from the comprobacion object and formats them
+    into a dictionary structure, which is useful for further processing such as PDF generation.
+    Args:
+        comprobacion: An object containing the attributes 'name', 'atrmac', 'atrexact', and 'igual'.
+            - name: The name or identifier of the capture.
+            - atrmac: The MAC attribute associated with the capture.
+            - atrexact: The attribute indicating the exact copy.
+            - igual: The reference to the original capture that is being copied.
+    Returns:
+        dict: A dictionary containing the extracted data and a formatted comment describing
+        the exact copy relationship, suitable for export or transformation to PDF.
+    """
+    
     diccionario = {
         'nombre': comprobacion.name,
         'atrmac': comprobacion.atrmac,
@@ -680,6 +695,23 @@ def claseAdiccionarioCopiaExacta(comprobacion):
 
 
 def claseAdiccionarioCopia(comprobacion):
+    """
+    Converts a comprobacion object representing a general copy case into a dictionary with relevant attributes.
+    Args:
+        comprobacion: An object containing the following attributes:
+            - name: The name or identifier of the capture.
+            - atrmac: The MAC address associated with the capture.
+            - atrComprobacionIndividual: Attribute indicating the copy status or related information.
+            - igual: The identifier of the capture that is considered equal (the original).
+    Returns:
+        dict: A dictionary with the following keys:
+            - 'nombre': The name of the capture.
+            - 'atrmac': The MAC address of the capture.
+            - 'copia': The copy status or related information.
+            - 'igual': The identifier of the original capture.
+            - 'Comentario': A descriptive comment explaining that the capture is a copy, sharing MAC address and timestamp with the original.
+    """
+    
     diccionario = {
         'nombre': comprobacion.name,
         'atrmac': comprobacion.atrmac,
@@ -692,6 +724,23 @@ def claseAdiccionarioCopia(comprobacion):
 
 
 def claseAdiccionarioCopiaIndividual(comprobacion):
+    """
+    Converts a failed individual test result (comprobacion) into a dictionary representation.
+    This function is used when a capture does not pass individual verification tests.
+    It extracts relevant attributes from the `comprobacion` object and returns them in a dictionary,
+    including a fixed comment indicating the failure.
+    Args:
+        comprobacion: An object representing the result of an individual test, expected to have
+            the attributes `name`, `atrmac`, `atrComprobacionIndividual`, and `igual`.
+    Returns:
+        dict: A dictionary containing the following keys:
+            - 'nombre': The name of the capture.
+            - 'atrmac': The MAC attribute of the capture.
+            - 'Passed': The result of the individual verification.
+            - 'igual': Whether the capture matches the expected result.
+            - 'Comentario': A fixed comment indicating the capture did not pass the individual test.
+    """
+    
     diccionario = {
         'nombre': comprobacion.name,
         'atrmac': comprobacion.atrmac,
