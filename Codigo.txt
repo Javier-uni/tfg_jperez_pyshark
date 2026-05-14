@@ -1,0 +1,5 @@
+404 = Captura Corrupta
+414 = Capturas Identicas
+004 = Captura de otro año
+040 = Captura con numero insuficiente de paquetes VLAN
+410 = Captura con una etiqueta VLAN 802.1Q

@@ -1,4 +1,7 @@
+from posixpath import abspath
+
 import pyshark
+from pyshark.capture.capture import TSharkCrashException
 import logging
 import os
 import filecmp
@@ -8,6 +11,69 @@ import json
 import csv
 
 
+# ──────────────────────────────── #
+#  FUNCIONES DE VALIDACION         #
+# ──────────────────────────────── #
+
+def is_capture_corrupted(cap_path):
+    """
+    Validates if a PCAP/PCAPNG file is corrupted by attempting to open it.
+    
+    Args:
+        cap_path (str): The file path to the capture file.
+    
+    Returns:
+        bool: True if the file is corrupted, False if it's valid.
+    """
+    abspath = os.path.abspath(cap_path)
+    cap = None
+
+    try:
+        # Basic file checks
+        if not os.path.exists(abspath):
+            logging.warning(f'Archivo no encontrado: {cap_path}')
+            return True
+
+        if os.path.getsize(abspath) == 0:
+            logging.warning(f'Archivo vacío detectado: {cap_path}')
+            return True
+
+        cap = pyshark.FileCapture(abspath)
+
+        packet_found = False
+
+        # Try to read at least one packet
+        for _ in cap:
+            packet_found = True
+            break
+
+        if not packet_found:
+            logging.warning(f'Archivo sin paquetes legibles: {cap_path}')
+            return True
+
+        return False
+
+    except TSharkCrashException as e:
+        logging.warning(f'Archivo corrupto detectado (TSharkCrashException): {cap_path}')
+        logging.debug(f'Error: {str(e)[:200]}')
+        return True
+
+    except Exception as e:
+        logging.warning(f'Archivo corrupto detectado (Exception): {cap_path}')
+        logging.debug(f'Error: {str(e)[:200]}')
+        return True
+
+    finally:
+        if cap is not None:
+            try:
+                cap.close()
+            except Exception:
+                pass
+            
+            
+            
+            
+            
 
 # ──────────────────────────────── #
 #  region FUNCIONES DE EXTRACCION  #
@@ -87,18 +153,26 @@ def timestamps(cap_path):
     nanosegs = []
     times = [fecha, nanosegs]
     abspath = os.path.abspath(cap_path)
-    cap = pyshark.FileCapture(abspath, use_json=True)
-    for pkt in cap:
-        #no haria ni falta el hasttr
-        if hasattr(pkt, 'frame_info'):
-            if pkt.sniff_time.strftime('%d/%m/%Y %H:%M:%S') not in fecha:
-                fecha.append(pkt.sniff_time.strftime('%d/%m/%Y %H:%M:%S'))  # comprobacion 2025
+    try:
+        cap = pyshark.FileCapture(abspath, use_json=True)
+        for pkt in cap:
+            #no haria ni falta el hasttr
+            if hasattr(pkt, 'frame_info'):
+                if pkt.sniff_time.strftime('%d/%m/%Y %H:%M:%S') not in fecha:
+                    fecha.append(pkt.sniff_time.strftime('%d/%m/%Y %H:%M:%S'))  # comprobacion 2025
 
-            if pkt.sniff_timestamp not in nanosegs:
-                nanosegs.append(pkt.sniff_timestamp)
+                if pkt.sniff_timestamp not in nanosegs:
+                    nanosegs.append(pkt.sniff_timestamp)
 
-    logging.debug(times)
-    cap.close()
+        logging.debug(times)
+        cap.close()
+    except TSharkCrashException as e:
+        logging.error(f'Error al extraer timestamps de {cap_path}: TShark crash - {str(e)}')
+        logging.error('Archivo PCAPNG posiblemente corrupted')
+        return [[], []]
+    except Exception as e:
+        logging.error(f'Error inesperado al extraer timestamps de {cap_path}: {str(e)}')
+        return [[], []]
     return times
 
 
@@ -206,7 +280,7 @@ def dict_csv(path_cap):
     logging.debug(f'Numbers extracted from path: {numbers}')
    # Tomar el primer número como identificador del puesto
    # Formato esperado: gXY_aptdZ.pcap
-    puesto_id = numbers[0]  # Mantener como string
+    puesto_id = numbers[0].zfill(2)  # Zero-pad to 2 digits to match CSV format
 
     # Cargar y procesar puestos.csv
     puestos_dict = {}
@@ -270,10 +344,22 @@ def check_older(path_cap1, comprobacion):
     Returns:
         None: Updates the comprobacion.atrtime attribute to False if the year doesn't match.
     """
-    time = timestamps(path_cap1)
-    if not str(comprobacion.year) in str(time[0]):
+    try:
+        time = timestamps(path_cap1)
+        if str(comprobacion.year) not in str(time[0]):
+            comprobacion.atrtime = False
+            comprobacion.atrComprobacionIndividual = False
+            comprobacion.codigo = '004'
+            logging.warning(f'La captura {path_cap1} NO tiene el año {comprobacion.year}')
+    except TSharkCrashException as e:
+        logging.error(f'Error al analizar timestamps en {path_cap1}: TShark crash - {str(e)}')
+        logging.error('Archivo PCAPNG posiblemente corrupted, se saltará')
         comprobacion.atrtime = False
-        logging.warning(f'La captura {path_cap1} NO tiene el año {comprobacion.year}')
+        comprobacion.atrComprobacionIndividual = False
+    except Exception as e:
+        logging.error(f'Error inesperado al obtener timestamps de {path_cap1}: {str(e)}')
+        comprobacion.atrtime = False
+        comprobacion.atrComprobacionIndividual = False
 
 
 
@@ -304,10 +390,12 @@ def comprobacion_identica(path_cap1, path_cap2, comprobacion1, comprobacion2):
         comprobacion1.atrexact = False
         comprobacion1.atrComprobacionIndividual = False
         comprobacion1.igual = os.path.basename(path_cap2)
+        comprobacion1.codigo = '414'
 
         comprobacion2.atrexact = False
         comprobacion2.atrComprobacionIndividual = False
         comprobacion2.igual = os.path.basename(path_cap1)
+        comprobacion2.codigo = '414'
     else:
         logging.debug("Las capturas no son identicas.")
 
@@ -338,29 +426,36 @@ def num_captured_pckts(path_cap, comprobacion, numMin):
     Checks if the cap has a minimun of packets.
     Args:
         cap_path (str): The file path to the capture file.
+        comprobacion (object): An object with attributes 'atrComprobacionIndividual'
     Returns:
-        True if the capture has more than 4 packets, False otherwise.
+        None (changes the comprobacion object).
     """
 
     abspath = os.path.abspath(path_cap)
-    cap = pyshark.FileCapture(abspath)
-    numpaquetes = sum(1 for _ in cap)
-    if numpaquetes >= numMin:
-        logging.debug('La captura cuenta con un minimo de 4 paquetes' + str(numpaquetes))
+    try:
+        cap = pyshark.FileCapture(abspath)
+        numpaquetes = sum(1 for _ in cap)
         cap.close()
-        suma = comprobacion.nota
-        suma += 1
-        comprobacion.nota = suma
-        return True
-    elif numpaquetes < numMin:
-        logging.warning('La captura cuenta con unicamente ' + str(
-            numpaquetes) + ' paquetes' + '-----------------------------------------------')
-        cap.close()
-        return False
-    else:
-        logging.critical(
-            'Algo ha salido mal, hay un error en el analisis del numero de paquetes de la captura, min_packs')
-        cap.close()
+        if numpaquetes >= numMin:
+            logging.debug('La captura cuenta con un minimo de 4 paquetes' + str(numpaquetes))
+            suma = int(comprobacion.codigo)
+            suma += 1
+            comprobacion.codigo = str(suma).zfill(3)
+        elif numpaquetes < numMin:
+            logging.warning('La captura cuenta con unicamente ' + str(
+                numpaquetes) + ' paquetes' + '-----------------------------------------------')
+            comprobacion.atrComprobacionIndividual = False
+        else:
+            logging.critical(
+                'Algo ha salido mal, hay un error en el analisis del numero de paquetes de la captura, min_packs')
+            comprobacion.atrComprobacionIndividual = False
+    except TSharkCrashException as e:
+        logging.error(f'Error al analizar {path_cap}: TShark crash - {str(e)}')
+        logging.error('Archivo PCAPNG posiblemente corrupted, se saltará')
+        comprobacion.atrComprobacionIndividual = False
+    except Exception as e:
+        logging.error(f'Error inesperado al analizar {path_cap}: {str(e)}')
+        comprobacion.atrComprobacionIndividual = False
 
 
 def num_vlan_captured_pckts(path_cap, comprobacion, numMin):
@@ -375,19 +470,29 @@ def num_vlan_captured_pckts(path_cap, comprobacion, numMin):
     """
 
     abspath = os.path.abspath(path_cap)
-    cap = pyshark.FileCapture(abspath, display_filter='vlan')
-    numpaquetes = sum(1 for _ in cap)
-    cap.close()
-    if numpaquetes >= numMin:
-        logging.debug('La captura cuenta con un minimo de 4 paquetes VLAN' + str(numpaquetes))
+    try:
+        cap = pyshark.FileCapture(abspath, display_filter='vlan')
+        numpaquetes = sum(1 for _ in cap)
+        cap.close()
+        if numpaquetes >= numMin:
+            logging.debug('La captura cuenta con un minimo de 4 paquetes VLAN' + str(numpaquetes))
 
-    elif numpaquetes < numMin:
-        logging.warning('La captura cuenta con unicamente ' + str(numpaquetes) + ' paquetes VLAN')
+        elif numpaquetes < numMin:
+            logging.warning('La captura cuenta con unicamente ' + str(numpaquetes) + ' paquetes VLAN')
+            comprobacion.codigo = '040'
+            comprobacion.atrComprobacionIndividual = False
+
+
+        else:
+            logging.critical('Algo ha salido mal, hay un error en el analisis del numero de paquetes de la captura, min_packs')
+            comprobacion.atrComprobacionIndividual = False
+    except TSharkCrashException as e:
+        logging.error(f'Error al analizar VLAN en {path_cap}: TShark crash - {str(e)}')
+        logging.error('Archivo PCAPNG posiblemente corrupted, se saltará')
         comprobacion.atrComprobacionIndividual = False
-
-
-    else:
-        logging.critical('Algo ha salido mal, hay un error en el analisis del numero de paquetes de la captura, min_packs')
+    except Exception as e:
+        logging.error(f'Error inesperado al analizar VLAN en {path_cap}: {str(e)}')
+        comprobacion.atrComprobacionIndividual = False
 
 
 def min_icmp_captured_pckts(path_cap, comprobacion,numMin=4):
@@ -423,14 +528,24 @@ def check_arp_request_reply(path_cap1, comprobacion):
     """
 
     abspath = os.path.abspath(path_cap1)
-    cap = pyshark.FileCapture(abspath, display_filter='arp.opcode == 1')
+    try:
+        cap = pyshark.FileCapture(abspath, display_filter='arp.opcode == 1')
 
-    ARPRequest = sum(1 for _ in cap)
-    cap.close()
+        ARPRequest = sum(1 for _ in cap)
+        cap.close()
 
-    cap = pyshark.FileCapture(abspath, display_filter='arp.opcode == 2')
-    ARPResponse = sum(1 for _ in cap)
-    cap.close()
+        cap = pyshark.FileCapture(abspath, display_filter='arp.opcode == 2')
+        ARPResponse = sum(1 for _ in cap)
+        cap.close()
+    except TSharkCrashException as e:
+        logging.error(f'Error al analizar ARP en {path_cap1}: TShark crash - {str(e)}')
+        logging.error('Archivo PCAPNG posiblemente corrupted, se saltará')
+        comprobacion.atrComprobacionIndividual = False
+        return
+    except Exception as e:
+        logging.error(f'Error inesperado al analizar ARP en {path_cap1}: {str(e)}')
+        comprobacion.atrComprobacionIndividual = False
+        return
 
     if ARPRequest > 0 and ARPResponse > 0:
         logging.debug('La captura tiene peticiones y respuestas ARP')
@@ -468,7 +583,7 @@ def check_ip_vlan(path_cap, comprobacion):
     logging.debug(f'Numbers extracted from path: {numbers}')
    # Tomar el primer número como identificador del puesto
    # Formato esperado: gXY_aptdZ.pcap
-    puesto_id = numbers[0]  # Mantener como string
+    puesto_id = numbers[0].zfill(2)  # Zero-pad to 2 digits to match CSV format
 
     # Cargar y procesar puestos.csv
     puestos_dict = {}
@@ -498,6 +613,7 @@ def check_ip_vlan(path_cap, comprobacion):
     # Buscar la VLAN correspondiente
     if puesto_id not in puestos_dict:
         logging.error(f"Puesto {puesto_id} no encontrado en puestos.csv")
+        comprobacion.atrComprobacionIndividual = False
         return False
 
     expected_vlan = puestos_dict[puesto_id]
@@ -507,6 +623,7 @@ def check_ip_vlan(path_cap, comprobacion):
         expected_vlan = int(expected_vlan)
     except ValueError:
         logging.error(f"Valor de VLAN inválido para puesto {puesto_id}: {expected_vlan}")
+        comprobacion.atrComprobacionIndividual = False
         return False
 
     logging.debug(f'Expected VLAN for puesto {puesto_id}: {expected_vlan}')
@@ -521,7 +638,7 @@ def check_ip_vlan(path_cap, comprobacion):
                 logging.debug('La captura tiene peticiones ICMP echo request')
                 logging.debug('ICMP Normal')
                 if hasattr(pkt, 'vlan'):
-                    vlan = pkt.vlan.id
+                    vlan = int(pkt.vlan.id)
                 break
     cap.close()
 
@@ -564,7 +681,8 @@ def get_ip_id(ip_address):
 
 def check_vlan_802_1q(path_cap, comprobacion):
     """
-    8021Q cojo mensaje buscando cabecera8021q buscando vlanid para comprobar con puesto
+    8021Q busca cabecera8021q buscando vlanid para comprobar con puesto
+    
     Checks if the ICMP is coherent with the expected VLAN.
     Important: This uses the puestos.json file to check the expected VLAN for the given capture.
     Args:
@@ -579,10 +697,12 @@ def check_vlan_802_1q(path_cap, comprobacion):
     if not numbers:
         logging.error('No se han encontrado números en el nombre del fichero de captura')
         logging.error('Posiblemente el nombre del fichero no tiene un formato correcto')
+        comprobacion.atrComprobacionIndividual = False
+        return False
 
    # Tomar el primer número como identificador del puesto
    # Formato esperado: gXY_aptdZ.pcap
-    puesto_id = numbers[0]  # Mantener como string
+    puesto_id = numbers[0].zfill(2)  # Zero-pad to 2 digits to match CSV format
 
     # Cargar y procesar puestos.csv
     puestos_dict = {}
@@ -612,6 +732,7 @@ def check_vlan_802_1q(path_cap, comprobacion):
     # Buscar la VLAN correspondiente
     if puesto_id not in puestos_dict:
         logging.error(f"Puesto {puesto_id} no encontrado en puestos.csv")
+        comprobacion.atrComprobacionIndividual = False
         return False
 
     expected_vlan = puestos_dict[puesto_id]
@@ -621,6 +742,7 @@ def check_vlan_802_1q(path_cap, comprobacion):
         expected_vlan = int(expected_vlan)
     except ValueError:
         logging.error(f"Valor de VLAN inválido para puesto {puesto_id}: {expected_vlan}")
+        comprobacion.atrComprobacionIndividual = False
         return False
 
 
@@ -654,6 +776,38 @@ def check_vlan_802_1q(path_cap, comprobacion):
 
         elif comprobacion.atrComprobacionIndividual:
             logging.info('La captura ha pasado todos los tests, ✓')
+
+
+def check_no_vlan_802_1q(path_cap, comprobacion):
+    
+    
+    
+    abspath = os.path.abspath(path_cap)
+    
+
+    try:
+        cap = pyshark.FileCapture(abspath, display_filter='vlan')
+        num_vlan_packets = sum(1 for _ in cap)
+
+        if num_vlan_packets == 0:
+            logging.info('La captura no contiene cabeceras VLAN 802.1Q, ✓')
+            
+
+        else:
+            logging.warning(
+                'La captura contiene ' + str(num_vlan_packets) +
+                ' paquetes con cabecera VLAN 802.1Q'
+            )
+            logging.warning('Esta captura debería ser untagged, por lo que no debería tener VLAN visible')
+            comprobacion.atrComprobacionIndividual = False
+            comprobacion.codigo = '415'
+            return False
+
+    except Exception as e:
+        logging.error(f'Error inesperado al comprobar ausencia de VLAN en {path_cap}: {str(e)}')
+        comprobacion.atrComprobacionIndividual = False
+        return False
+
 
 
 # endregion
@@ -747,6 +901,153 @@ def claseAdiccionarioCopiaIndividual(comprobacion):
         'Passed': comprobacion.atrComprobacionIndividual,
         'igual': comprobacion.igual,
         'Comentario': 'Esta captura no ha pasado la comprobacion individual.'
+    }
+    return diccionario
+def claseAdiccionarioCorrupted(comprobacion):
+    """
+    Converts a corrupted capture object into a dictionary representation.
+    This function is used when a capture is identified as corrupted.
+    It extracts relevant attributes from the `comprobacion` object and returns them in a dictionary,
+    including a fixed comment indicating the corruption.
+    Args:
+        comprobacion: An object representing a corrupted capture, expected to have
+            the attributes `name`, `atrmac`, `atrComprobacionIndividual`, and `igual`.
+    Returns:
+        dict: A dictionary containing the following keys:
+            - 'nombre': The name of the capture.
+            - 'atrmac': The MAC attribute of the capture.
+            - 'Passed': The result of the individual verification.
+            - 'igual': Whether the capture matches the expected result.
+            - 'Comentario': A fixed comment indicating the capture is corrupted.
+    """
+    
+    diccionario = {
+        'nombre': comprobacion.name,
+        'atrmac': comprobacion.atrmac,
+        'Passed': comprobacion.atrComprobacionIndividual,
+        'igual': comprobacion.igual,
+        'Comentario': 'Esta captura está corrupta.'
+    }
+    return diccionario
+
+def claseAdiccionarioMinPaquetesVLAN(comprobacion):
+    """
+    Converts a comprobacion object representing a capture with insufficient VLAN packets into a dictionary with relevant attributes.
+    Args:
+        comprobacion: An object containing the following attributes:
+            - name: The name or identifier of the capture.
+            - atrmac: The MAC address associated with the capture.
+            - atrComprobacionIndividual: Attribute indicating the VLAN packet count or related information.
+            - igual: The identifier of the original capture (if applicable).
+            - codigo: The code associated with the insufficient VLAN packet count (if applicable).
+    Returns:
+        dict: A dictionary with the following keys:
+            - 'nombre': The name of the capture.
+            - 'atrmac': The MAC address of the capture.
+            - 'VLAN_packets': The count of VLAN packets in the capture.
+            - 'igual': The identifier of the original capture (if applicable).
+            - 'codigo': The code associated with the insufficient VLAN packet count (if applicable).
+            - 'Comentario': A descriptive comment explaining that the capture has insufficient VLAN packets.
+    """
+    
+    diccionario = {
+        'nombre': comprobacion.name,
+        'atrmac': comprobacion.atrmac,
+        'igual': comprobacion.igual,
+        'codigo': comprobacion.codigo,
+        'Comentario': 'La captura ' + str(comprobacion.name) + ' no tiene el número mínimo de paquetes VLAN requerido.'
+    }
+    return diccionario
+
+
+
+def claseAdiccionarioTag(comprobacion):
+    """
+    Converts a comprobacion object representing a tagged capture into a dictionary with relevant attributes.
+    Args:
+        comprobacion: An object containing the following attributes:
+            - name: The name or identifier of the capture.
+            - atrmac: The MAC address associated with the capture.
+            - atrComprobacionIndividual: Attribute indicating the tagged status or related information.
+            - igual: The identifier of the original capture (if applicable).
+            - codigo: The code associated with the tagged status (if applicable).
+    Returns:
+        dict: A dictionary with the following keys:
+            - 'nombre': The name of the capture.
+            - 'atrmac': The MAC address of the capture.
+            - 'tagged': The tagged status or related information.
+            - 'igual': The identifier of the original capture (if applicable).
+            - 'codigo': The code associated with the tagged status (if applicable).
+            - 'Comentario': A descriptive comment explaining that the capture is tagged and may have specific characteristics.
+    """
+    
+    diccionario = {
+        'nombre': comprobacion.name,
+        'atrmac': comprobacion.atrmac,
+        'tagged': comprobacion.atrComprobacionIndividual,
+        'igual': comprobacion.igual,
+        'codigo': comprobacion.codigo,
+        'Comentario': 'La captura ' + str(comprobacion.name) + ' contiene un problema con la etiqueta VLAN 802.1Q.'
+    }
+    return diccionario
+
+def claseAdiccionarioUntagged(comprobacion):
+    """
+    Converts a comprobacion object representing a tagged or untagged capture into a dictionary with relevant attributes.
+    Args:
+        comprobacion: An object containing the following attributes:
+            - name: The name or identifier of the capture.
+            - atrmac: The MAC address associated with the capture.
+            - atrComprobacionIndividual: Attribute indicating the tagged status or related information.
+            - igual: The identifier of the original capture (if applicable).
+            - codigo: The code associated with the tagged status (if applicable).
+    Returns:
+        dict: A dictionary with the following keys:
+            - 'nombre': The name of the capture.
+            - 'atrmac': The MAC address of the capture.
+            - 'tagged': The tagged status or related information.
+            - 'igual': The identifier of the original capture (if applicable).
+            - 'codigo': The code associated with the tagged status (if applicable).
+            - 'Comentario': A descriptive comment explaining that the capture is tagged and may have specific characteristics.
+    """
+    
+    diccionario = {
+        'nombre': comprobacion.name,
+        'atrmac': comprobacion.atrmac,
+        'tagged': comprobacion.atrComprobacionIndividual,
+        'igual': comprobacion.igual,
+        'codigo': comprobacion.codigo,
+        'Comentario': 'La captura ' + str(comprobacion.name) + ' contiene una etiqueta VLAN 802.1Q, cuando no debería.'
+    }
+    return diccionario
+
+def claseAdiccionarioYear(comprobacion):
+    """
+    Converts a comprobacion object representing a capture from a specific year into a dictionary with relevant attributes.
+    Args:
+        comprobacion: An object containing the following attributes:
+            - name: The name or identifier of the capture.
+            - atrmac: The MAC address associated with the capture.
+            - year: The year associated with the capture.
+            - igual: The identifier of the original capture (if applicable).
+            - codigo: The code associated with the year (if applicable).
+    Returns:
+        dict: A dictionary with the following keys:
+            - 'nombre': The name of the capture.
+            - 'atrmac': The MAC address of the capture.
+            - 'year': The year associated with the capture.
+            - 'igual': The identifier of the original capture (if applicable).
+            - 'codigo': The code associated with the year (if applicable).
+            - 'Comentario': A descriptive comment explaining that the capture is from a specific year.
+    """
+    
+    diccionario = {
+        'nombre': comprobacion.name,
+        'atrmac': comprobacion.atrmac,
+        'year': comprobacion.year,
+        'igual': comprobacion.igual,
+        'codigo': comprobacion.codigo,
+        'Comentario': 'La captura ' + str(comprobacion.name) + ' no es de este año.'
     }
     return diccionario
 # endregion

@@ -24,7 +24,7 @@ def Inicio(directorio,practica):
     
     #Incluir aqui las comprobaciones en funcion de la practica
     #prueba in practica2 ???
-    if practica == 'practica 2' or practica == 'Practica 2':
+    if practica == 'practica 2' or practica == 'Practica 2' or True: #LIMPIARRRRRR
         #Recorrer el directorio y analizar las capturas
         #recorrerDirectorio(directorio)
         #recorrerCapturas(directorio)
@@ -56,7 +56,7 @@ def logconfig(level):
 #Cambia la configuracion inicial de los logs
 #No llega a funcionar ya que los logger creados los edito más tarde a mi gusto
  logging.basicConfig(
-     level = level_dict.get(level, logging.INFO),  # Default a INFO si hay error
+     level = level_dict.get(level, logging.DEBUG),  # Default a INFO si hay error
      format='%(levelname)s: %(message)s'
  )
  
@@ -70,7 +70,7 @@ def logconfig(level):
  # Handler para consola (formato simple)
  console_handler = logging.StreamHandler() 
  console_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
- console_handler.setLevel(level_dict.get(level, logging.critical))  # Ajustar el nivel del handler
+ console_handler.setLevel(level_dict.get(level, logging.CRITICAL))  # Ajustar el nivel del handler
  logger.addHandler(console_handler)
  
  
@@ -101,7 +101,7 @@ class Comprobacion:
         A boolean attribute (default is True) Turns to False if either .
         
     year : str, optional
-        The year associated with the capture (default is '2025').
+        The year associated with the capture (default is '2026').
         
     atrComprobacionGlobal : bool, optional
         A boolean attribute indicating if there has been a copy (default is True).
@@ -115,26 +115,30 @@ class Comprobacion:
     atrComprobacionIndividual : bool, optional
         A boolean attribute indicating if the verification atrComprobacionIndividual (default is True).
     
-    nota : int, optional
-        A numeric attribute (default is 0).
+    atrCorrupted : bool, optional
+        A boolean attribute indicating if the capture is corrupted (default is False).
+    
+    codigo : str, optional
+        A string attribute (default is '000').
         
     Methods
     -------
-    __init__(self, name, atrmac=True, atrtime=True, year='2025', atrcopia=True, atrexact=True, igual='', atrComprobacionIndividual=True)
+    __init__(self, name, atrmac=True, atrtime=True, year='2026', atrcopia=True, atrexact=True, igual='', atrCorrupted=False, atrComprobacionIndividual=True, codigo='000')
         Initializes the Comprobacion class with the provided attributes.
     """
     
-    def __init__(self, name, atrmac=True, atrtime=True, year='2025', 
-                  atrcopia=True, atrexact=True, igual='', passed=True, nota=0):
+    def __init__(self, name, atrmac=True, atrtime=True, year='2026', 
+                  atrcopia=True, atrexact=True, igual='', atrCorrupted=False, atrComprobacionIndividual=True, codigo='000'):
         self.name = name 
         self.atrmac = atrmac
         self.atrtime = atrtime
         self.year = year
-        self.atrComprobacionGlobal = atrcopia
+        self.atrComprobacionGlobal = atrcopia   
         self.atrexact = atrexact
         self.igual = igual
-        self.atrComprobacionIndividual = passed
-        self.nota = nota 
+        self.atrComprobacionIndividual = atrComprobacionIndividual
+        self.atrCorrupted = atrCorrupted
+        self.codigo = codigo  
         
         
 def dir(directorio):
@@ -154,56 +158,105 @@ def dir(directorio):
 
 #falta la Documentacion aqui... curro
 def recorrerDirectorioFinal(directorio,prueba):
+    """
+    Analyzes all capture files contained in a directory.
+
+    This function performs the complete analysis workflow for a given practice.
+    First, it creates the initial list of capture files and their associated
+    Comprobacion objects. Then it pass through several stages of filtering and validation,
+    including checking for corrupted captures, running individual checks, and comparing captures in pairs to detect copies.
+
+    The analysis is divided into five main stages:
+        1. Build the original lists of capture paths and Comprobacion objects.
+        2. Filter corrupted captures before processing them.
+        3. Run the individual validation checks over valid captures.
+        4. Compare valid captures in pairs to detect exact copies or possible
+           copies based on source MAC addresses and timestamps.
+        5. Generate the final JSON and PDF reports.
+
+    Args:
+        directorio (str): Path to the directory containing the capture files.
+        prueba (str): Name of the practice or analysis mode to be applied.
+
+    Returns:
+        None: The function updates the Comprobacion objects, writes the
+        results to a JSON file, and generates a PDF report.
+    """
+
     
     logging.info('El directorio tiene '+str(len(os.listdir(directorio)))+' capturas')
     archivos = []
     comprobaciones = []
     
+    diccionariomacs = {}
     
+    # 1. Crear listas originales
     for filename in os.listdir(directorio):
+        #Probar en vez de str -> path = os.path.join(directorio, filename)
         archivos.append(str(directorio+'/'+filename))
         comprobacion = Comprobacion(filename)
         comprobaciones.append(comprobacion)
         logging.debug(comprobacion.name)
-    # logging.debug(archivos)
     
     logging.debug(len(archivos)) 
     
-    #COMPROBACION INDIVIDUAL
-    logging.info('Comprobacion individual')
-    diccionariomacs = {}
+    
+    
+    #2. Creamos listas filtradas
+    archivos_validos = []
+    comprobaciones_validas = []
+    
     for i in range(len(archivos)):
-        comprobacionindividual(archivos[i],comprobaciones[i],prueba)#--------------------------------------------
+        # Validar si el archivo es corrupto antes de procesarlo
+        if lib.is_capture_corrupted(archivos[i]):
+            logging.critical(f'Saltando archivo corrupted: {archivos[i]}')
+            comprobaciones[i].atrCorrupted = True
+            comprobaciones[i].atrComprobacionIndividual = False
+            comprobaciones[i].codigo = '404'
+        else: 
+            archivos_validos.append(archivos[i])
+            comprobaciones_validas.append(comprobaciones[i])
+    logging.debug(f'Capturas válidas para análisis: {len(archivos_validos)}')
+            
+            
+            
+            
+    #3. Comprobacion individual
+    logging.info('Comprobacion individual')
+    for i in range(len(archivos_validos)):    
+        comprobacionindividual(archivos_validos[i],comprobaciones_validas[i],prueba)
 
-        #Extraccion de MACs y paso a diccionario
-        nombre = comprobaciones[i].name
-        macs = lib.resultadomacsrc(archivos[i])  
+        #3.5 Extraccion de MACs y paso a diccionario
+        nombre = comprobaciones_validas[i].name
+        macs = lib.resultadomacsrc(archivos_validos[i])  
         diccionariomacs[nombre] = macs
         
         
-    #COMPROBACION DE PARES
+    #4. Comprobacion de pares 
     nombres = list(diccionariomacs.keys())
 
     for i in range(len(nombres)):
         for j in range(i+1, len(nombres)):
             logging.info(f"Comparando {nombres[i]} y {nombres[j]} de manera Identica")
-            #Ultimo recurso old school
-            lib.comprobacion_identica(archivos[i], archivos[j], comprobaciones[i], comprobaciones[j])
+
+            lib.comprobacion_identica(archivos_validos[i], archivos_validos[j], 
+                                      comprobaciones_validas[i], comprobaciones_validas[j])
             
 
             if (diccionariomacs[nombres[i]] == diccionariomacs[nombres[j]]) and \
                 (diccionariomacs[nombres[i]] != 0) and \
                 (diccionariomacs[nombres[j]] != 0) and \
-               (not(comprobaciones[i].atrexact == False) or not(comprobaciones[j].atrexact == False)):
+               (not(comprobaciones_validas[i].atrexact == False) or not(comprobaciones_validas[j].atrexact == False)):
                 # REVISAR SI ES == O IN
                 
-                comprobaciones[i].atrmac = False
-                comprobaciones[j].atrmac = False
+                comprobaciones_validas[i].atrmac = False
+                comprobaciones_validas[j].atrmac = False
                 logging.info(f"{nombres[i]} y {nombres[j]} tienen las mismas MACs: {diccionariomacs[nombres[i]]}")
-                lib.comparacionTemporal(archivos[i], archivos[j], comprobaciones[i], comprobaciones[j])
+                lib.comparacionTemporal(archivos_validos[i], archivos_validos[j], 
+                                        comprobaciones_validas[i], comprobaciones_validas[j])
 
              
-    #COMPROBACION DE PARES
+     # 5. Informe
     exponerResultados(comprobaciones)   
     json_to_pdf(prueba)
 
@@ -235,14 +288,37 @@ def comprobacionindividual(path_cap1,comprobacion,prueba):
         lib.check_arp_request_reply(path_cap1,comprobacion) #Comprobacion de ARP FALTARIA RELACIONARLO CON 10.220.X.Y
         lib.check_ip_vlan(path_cap1,comprobacion)
         lib.check_vlan_802_1q(path_cap1,comprobacion) 
-    elif prueba == "informe":
+    elif prueba == "informe" or prueba == '0':
         logging.info('Comprobacion individual de informe')
         lib.check_older(path_cap1,comprobacion)
         logging.info('La captura '+str(path_cap1)+' ha pasado la comprobacion individual')
+
+        
+    elif prueba == 'Tagged':
+        logging.debug('Comprobacion individual de '+str(prueba))
+        lib.num_captured_pckts(path_cap1, comprobacion, numMin = 4)  
+        lib.check_older(path_cap1,comprobacion)
+        #lib.check_ip_vlan(path_cap1,comprobacion)
+        lib.num_vlan_captured_pckts(path_cap1, comprobacion, numMin=4)
+        lib.check_arp_request_reply(path_cap1,comprobacion)
+        #lib.check_vlan_802_1q(path_cap1,comprobacion) 
+        logging.info('La captura '+str(path_cap1)+' ha pasado la comprobacion individual')
+        
+        
+    elif prueba == 'Untagged':
+        logging.debug('Comprobacion individual de '+str(prueba))
+        lib.num_captured_pckts(path_cap1, comprobacion, numMin = 4)  
+        lib.check_older(path_cap1,comprobacion)
+        lib.check_arp_request_reply(path_cap1,comprobacion)
+        lib.check_no_vlan_802_1q(path_cap1,comprobacion)
+        logging.info('La captura '+str(path_cap1)+' ha pasado la comprobacion individual')
+    
+    
     elif True:
         logging.critical('FALTAAAAA')
         logging.critical('De momento solo funciona la Practica 2')
         #recorrerDirectorioFinal(directorio)
+        
 
 
 
@@ -270,13 +346,45 @@ def exponerResultados(comprobaciones):
     listado_hechos = []
     with open('resultados.json', 'w') as file:
      for comprobacion in comprobaciones:
-        
         logging.debug('Exponiendo captura: '+comprobacion.name + ' si procede')
-        if (not comprobacion.atrexact) and (comprobacion.name not in listado_hechos):
+        if comprobacion.atrCorrupted:
+             listado_hechos.append(comprobacion.name)
+             logging.debug(f'La captura {comprobacion.name}  está corrupta, siendo expuesta')
+             diccionario = lib.claseAdiccionarioCorrupted(comprobacion)
+             listado_diccionarios.append(diccionario)
+             continue
+        
+       
+        elif (not comprobacion.atrexact) and (comprobacion.name not in listado_hechos):
             listado_hechos.append(comprobacion.igual)
             logging.debug(f'La captura {comprobacion.name}  es una copia exacta, siendo expuesta')
             diccionario = lib.claseAdiccionarioCopiaExacta(comprobacion)
             listado_diccionarios.append(diccionario)
+            
+        elif(comprobacion.codigo == '040'):
+                listado_hechos.append(comprobacion.name)
+                logging.debug(f'La captura {comprobacion.name}  no ha pasado la comprobacion de numero minimo de paquetes VLAN')
+                diccionario = lib.claseAdiccionarioMinPaquetesVLAN(comprobacion)
+                listado_diccionarios.append(diccionario)
+                
+        elif(comprobacion.codigo == '004'):
+                listado_hechos.append(comprobacion.name)
+                logging.debug(f'La captura {comprobacion.name}  no es de este año')
+                diccionario = lib.claseAdiccionarioYear(comprobacion)
+                listado_diccionarios.append(diccionario)
+            
+        elif(comprobacion.codigo == '410'):
+                listado_hechos.append(comprobacion.name)
+                logging.debug(f'La captura {comprobacion.name}  no ha pasado la comprobacion de su tag esperado')
+                diccionario = lib.claseAdiccionarioUntagged(comprobacion)
+                listado_diccionarios.append(diccionario)
+                
+        elif(comprobacion.codigo == '420'):
+                listado_hechos.append(comprobacion.name)
+                logging.debug(f'La captura {comprobacion.name}  no ha pasado la comprobacion de su tag esperado')
+                diccionario = lib.claseAdiccionarioTag(comprobacion)
+                listado_diccionarios.append(diccionario)
+                
         else:
             if (not comprobacion.atrComprobacionGlobal) and (comprobacion.name not in listado_hechos):
                 listado_hechos.append(comprobacion.igual)
@@ -317,8 +425,62 @@ def json_to_pdf(practica,json_path='resultados.json'):
         with open(json_path, 'r') as f:
             data = json.load(f)
 
-        pdf = FPDF()
+        class ReportPDF(FPDF):
+            def header(self):
+                """
+                Add the DIT logo on every page after the cover.
+                """
+                if self.page_no() == 1:
+                    # Cover
+                    return
+
+                logo_path = os.path.join("Images", "DITlogo.png")
+                if os.path.exists(logo_path):
+                    logo_width = 25  # Keep the logo modest in size
+                    x_pos = self.w - self.r_margin - logo_width
+                    # Slightly higher than the normal margin to hug the top
+                    self.image(logo_path, x=x_pos, y=8, w=logo_width)
+
+        pdf = ReportPDF()
         pdf.set_auto_page_break(auto=True, margin=15)
+
+        # Cover page with full-bleed image
+        cover_path = os.path.join("Images", "PortadaPDF.jpg")
+        pdf.add_page()
+        if os.path.exists(cover_path):
+            pdf.image(cover_path, x=0, y=0, w=pdf.w, h=pdf.h)
+        else:
+            logging.warning(f"No se encontró la portada en {cover_path}.")
+
+        # Content starts on the second page
+        pdf.add_page()
+        pdf.ln(10)
+        pdf.set_font("Arial",style='B', size=16)
+        pdf.cell(0, 10, f"Descripción del análisis de capturas") #Título2
+        pdf.ln(20)
+        pdf.set_font("Arial", size=12)
+        pdf.multi_cell(0, 10, """Este programa ha sido desarrollado para analizar automáticamente las capturas de red entregadas por los estudiantes en la práctica, con el objetivo de comprobar que cumplen los requisitos mínimos y detectar posibles copias entre alumnos. 
+
+Su diseño permite realizar un análisis completo sin necesidad de conocimientos avanzados sobre redes o sobre el uso de herramientas como Wireshark.""")#Breve descripción del programa
+        pdf.ln(10)
+        pdf.multi_cell(0, 10, """\
+El programa realiza las siguientes funciones principales:
+    1. Comprobación Individual: Cada captura se analiza para verificar que cumple con los requisitos
+        mínimos establecidos en la práctica, como la presencia de ciertos tipos de paquetes y
+        la veracidad de estos.
+        
+    2. Detección de Copias: Se comparan las capturas entre sí para identificar posibles copias,
+        basándose en atributos inequivocos de estas.
+        
+    3. Generación de Informes: Los resultados del análisis se documentan en un archivo JSON y se
+        genera un informe en formato PDF que refleja los hallazgos principales.
+        
+Este enfoque automatizado facilita la revisión de las capturas, asegurando una evaluación justa y eficiente de los trabajos entregados por los estudiantes.""")
+        pdf.ln(10)
+        
+        
+        
+        # Third page: Report content
         pdf.add_page()
         pdf.set_font("Arial", size=12)
 
@@ -327,13 +489,13 @@ def json_to_pdf(practica,json_path='resultados.json'):
             if isinstance(item, dict):  # Ensure item is a dictionary
                 if item.get('igual') != '':
                     pdf.set_font("Arial", style='B', size=14)  # Cambia la fuente a Arial, negrita, tamaño 14
-                    pdf.cell(0, 10, f"Copia Detectada: {i}", ln=True)
+                    pdf.cell(0, 10, f"Problema Detectado: {i}", ln=True)
 
                     pdf.set_font("Arial", style='', size=12)  # Cambia la fuente a Arial, normal, tamaño 12
                     pdf.cell(0, 10, f"Captura1: {item.get('nombre', '')}", ln=True)
                     pdf.cell(0, 10, f"Captura2: {item.get('igual', '')}", ln=True)
-                    pdf.cell(0, 10, f"AtrMAC: {item.get('atrmac', '')}", ln=True)
-                    pdf.cell(0, 10, f"Copia: {item.get('copia', '')}", ln=True)
+                    #pdf.cell(0, 10, f"AtrMAC: {item.get('atrmac', '')}", ln=True)
+                    #pdf.cell(0, 10, f"Copia: {item.get('copia', '')}", ln=True)
                     pdf.multi_cell(0, 10, f"Comentario: {item.get('Comentario', '')}")
                     pdf.ln(7)  # espacio entre capturas
                 else:
@@ -357,7 +519,8 @@ def json_to_pdf(practica,json_path='resultados.json'):
 
         pdf.set_font("Arial", style='', size=12)
         pdf.multi_cell(0, 10, """\
-En el proceso de verificación, cada captura de red se representa con un objeto de la clase Comprobacion. Estos son algunos de sus atributos:
+En el proceso de verificación, cada captura de red se representa 
+con un objeto de la clase Comprobacion. Estos son algunos de sus atributos:
 
 - atrmac (bool): Indica si la MAC de origen detectada no está repetida en otra captura con el mismo tiempo. Si es False, significa que se encontró otra captura con la misma MAC y se considera duplicado.
 
@@ -448,7 +611,7 @@ def startGUI():
     marco_opciones.pack(pady=15)
 
     # Cuadro de selección ampliado
-    opciones = ['Practica 1', 'Practica 2', 'Practica 3']
+    opciones = ['Practica 1', 'Practica 2', 'Practica 3', 'Tagged', 'Untagged']
     seleccion = tkinter.StringVar()
     seleccion.set(opciones[1])
 
